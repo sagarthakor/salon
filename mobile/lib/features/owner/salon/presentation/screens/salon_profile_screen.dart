@@ -101,6 +101,26 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant _SalonForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // `_SalonForm` has no Key, so `salonAsync.when()` transitioning from its
+    // `error:` branch (no salon yet) to its `data:` branch (salon loaded)
+    // reuses this same State rather than recreating it — `_error` is plain
+    // State, not derived from `widget`, so a stale error from an earlier
+    // failed save would otherwise sit on screen forever, even once the
+    // salon has genuinely loaded. Only the underlying salon identity
+    // changing clears it — a rebuild with the same salon (e.g. this
+    // widget's own setState calls) must not wipe an error from the
+    // in-progress submission it belongs to.
+    if (widget.existing != oldWidget.existing) {
+      setState(() {
+        _error = null;
+        _fieldErrors = null;
+      });
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
