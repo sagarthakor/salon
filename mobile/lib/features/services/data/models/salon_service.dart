@@ -13,7 +13,8 @@ class SalonService {
     required this.gender,
     required this.price,
     required this.durationMinutes,
-    this.image,
+    this.imageUrl,
+    this.instagramUrl,
     required this.status,
     required this.sortOrder,
   });
@@ -30,7 +31,8 @@ class SalonService {
     gender: json['gender'] as String,
     price: num.parse(json['price'].toString()),
     durationMinutes: json['duration_minutes'] as int,
-    image: json['image'] as String?,
+    imageUrl: json['image_url'] as String?,
+    instagramUrl: json['instagram_url'] as String?,
     status: json['status'] as String,
     sortOrder: json['sort_order'] as int? ?? 0,
   );
@@ -44,7 +46,8 @@ class SalonService {
   final String gender;
   final num price;
   final int durationMinutes;
-  final String? image;
+  final String? imageUrl;
+  final String? instagramUrl;
   final String status;
   final int sortOrder;
 

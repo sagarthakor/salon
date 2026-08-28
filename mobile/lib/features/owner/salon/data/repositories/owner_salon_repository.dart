@@ -27,6 +27,7 @@ class OwnerSalonRepository {
     String? phone,
     String? email,
     String? website,
+    String? instagramUrl,
     String? addressLine1,
     String? city,
     String? state,
@@ -43,6 +44,7 @@ class OwnerSalonRepository {
         if (phone != null && phone.isNotEmpty) 'phone': phone,
         if (email != null && email.isNotEmpty) 'email': email,
         if (website != null && website.isNotEmpty) 'website': website,
+        if (instagramUrl != null && instagramUrl.isNotEmpty) 'instagram_url': instagramUrl,
         if (addressLine1 != null && addressLine1.isNotEmpty) 'address_line_1': addressLine1,
         if (city != null && city.isNotEmpty) 'city': city,
         if (state != null && state.isNotEmpty) 'state': state,
@@ -54,6 +56,12 @@ class OwnerSalonRepository {
     return Salon.fromJson(data);
   }
 
+  /// Unlike every other optional field here (omitted entirely when empty, so
+  /// an untouched field is left alone server-side), `instagram_url` is
+  /// always sent — including as an empty string, which the backend's
+  /// `ConvertEmptyStringsToNull` middleware turns into a real `null` — so
+  /// clearing the field in the owner form actually removes it, satisfying
+  /// "owner can remove Instagram URL".
   Future<Salon> update({
     required String name,
     required String genderType,
@@ -61,6 +69,7 @@ class OwnerSalonRepository {
     String? phone,
     String? email,
     String? website,
+    String? instagramUrl,
     String? addressLine1,
     String? city,
     String? state,
@@ -78,6 +87,7 @@ class OwnerSalonRepository {
         if (phone != null && phone.isNotEmpty) 'phone': phone,
         if (email != null && email.isNotEmpty) 'email': email,
         if (website != null && website.isNotEmpty) 'website': website,
+        'instagram_url': instagramUrl ?? '',
         if (addressLine1 != null && addressLine1.isNotEmpty) 'address_line_1': addressLine1,
         if (city != null && city.isNotEmpty) 'city': city,
         if (state != null && state.isNotEmpty) 'state': state,

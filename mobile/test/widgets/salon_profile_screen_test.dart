@@ -97,6 +97,7 @@ void main() {
         phone: any(named: 'phone'),
         email: any(named: 'email'),
         website: any(named: 'website'),
+        instagramUrl: any(named: 'instagramUrl'),
         addressLine1: any(named: 'addressLine1'),
         city: any(named: 'city'),
         timezone: any(named: 'timezone'),
@@ -130,6 +131,7 @@ void main() {
         phone: any(named: 'phone'),
         email: any(named: 'email'),
         website: any(named: 'website'),
+        instagramUrl: any(named: 'instagramUrl'),
         addressLine1: any(named: 'addressLine1'),
         city: any(named: 'city'),
         timezone: any(named: 'timezone'),
@@ -137,5 +139,208 @@ void main() {
     ).called(1);
     verifyNever(() => salonRepository.update(name: any(named: 'name'), genderType: any(named: 'genderType')));
     expect(find.text('Owner Dashboard'), findsOneWidget);
+  });
+
+  testWidgets('displays the existing salon Instagram URL, pre-filled — separate from any service Instagram link', (tester) async {
+    when(() => salonRepository.show()).thenAnswer(
+      (_) async => const Salon(
+        id: 'salon-1',
+        name: 'Prime Hair Studio',
+        slug: 'prime-hair-studio',
+        genderType: 'unisex',
+        instagramUrl: 'https://www.instagram.com/primehairstudio/',
+        address: Address(),
+        status: 'active',
+      ),
+    );
+
+    await tester.pumpWidget(buildApp());
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.widgetWithText(TextFormField, 'https://www.instagram.com/primehairstudio/'), findsOneWidget);
+  });
+
+  testWidgets('owner can add a salon Instagram URL and save it', (tester) async {
+    when(() => salonRepository.show()).thenAnswer(
+      (_) async => const Salon(
+        id: 'salon-1',
+        name: 'Prime Hair Studio',
+        slug: 'prime-hair-studio',
+        genderType: 'unisex',
+        address: Address(),
+        status: 'active',
+      ),
+    );
+    when(
+      () => salonRepository.update(
+        name: any(named: 'name'),
+        genderType: any(named: 'genderType'),
+        description: any(named: 'description'),
+        phone: any(named: 'phone'),
+        email: any(named: 'email'),
+        website: any(named: 'website'),
+        instagramUrl: any(named: 'instagramUrl'),
+        addressLine1: any(named: 'addressLine1'),
+        city: any(named: 'city'),
+        timezone: any(named: 'timezone'),
+        status: any(named: 'status'),
+      ),
+    ).thenAnswer(
+      (_) async => const Salon(
+        id: 'salon-1',
+        name: 'Prime Hair Studio',
+        slug: 'prime-hair-studio',
+        genderType: 'unisex',
+        instagramUrl: 'https://www.instagram.com/primehairstudio/',
+        address: Address(),
+        status: 'active',
+      ),
+    );
+
+    await tester.pumpWidget(buildApp());
+    await tester.pump();
+    await tester.pump();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Instagram profile (optional)'),
+      'https://www.instagram.com/primehairstudio/',
+    );
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump();
+
+    verify(
+      () => salonRepository.update(
+        name: 'Prime Hair Studio',
+        genderType: any(named: 'genderType'),
+        description: any(named: 'description'),
+        phone: any(named: 'phone'),
+        email: any(named: 'email'),
+        website: any(named: 'website'),
+        instagramUrl: 'https://www.instagram.com/primehairstudio/',
+        addressLine1: any(named: 'addressLine1'),
+        city: any(named: 'city'),
+        timezone: any(named: 'timezone'),
+        status: any(named: 'status'),
+      ),
+    ).called(1);
+  });
+
+  testWidgets('owner can clear an existing Instagram URL to remove it', (tester) async {
+    when(() => salonRepository.show()).thenAnswer(
+      (_) async => const Salon(
+        id: 'salon-1',
+        name: 'Prime Hair Studio',
+        slug: 'prime-hair-studio',
+        genderType: 'unisex',
+        instagramUrl: 'https://www.instagram.com/primehairstudio/',
+        address: Address(),
+        status: 'active',
+      ),
+    );
+    when(
+      () => salonRepository.update(
+        name: any(named: 'name'),
+        genderType: any(named: 'genderType'),
+        description: any(named: 'description'),
+        phone: any(named: 'phone'),
+        email: any(named: 'email'),
+        website: any(named: 'website'),
+        instagramUrl: any(named: 'instagramUrl'),
+        addressLine1: any(named: 'addressLine1'),
+        city: any(named: 'city'),
+        timezone: any(named: 'timezone'),
+        status: any(named: 'status'),
+      ),
+    ).thenAnswer(
+      (_) async => const Salon(
+        id: 'salon-1',
+        name: 'Prime Hair Studio',
+        slug: 'prime-hair-studio',
+        genderType: 'unisex',
+        address: Address(),
+        status: 'active',
+      ),
+    );
+
+    await tester.pumpWidget(buildApp());
+    await tester.pump();
+    await tester.pump();
+
+    await tester.enterText(find.widgetWithText(TextFormField, 'Instagram profile (optional)'), '');
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump();
+
+    verify(
+      () => salonRepository.update(
+        name: 'Prime Hair Studio',
+        genderType: any(named: 'genderType'),
+        description: any(named: 'description'),
+        phone: any(named: 'phone'),
+        email: any(named: 'email'),
+        website: any(named: 'website'),
+        instagramUrl: '',
+        addressLine1: any(named: 'addressLine1'),
+        city: any(named: 'city'),
+        timezone: any(named: 'timezone'),
+        status: any(named: 'status'),
+      ),
+    ).called(1);
+  });
+
+  testWidgets('shows the server-side field error for an invalid Instagram URL', (tester) async {
+    when(() => salonRepository.show()).thenAnswer(
+      (_) async => const Salon(
+        id: 'salon-1',
+        name: 'Prime Hair Studio',
+        slug: 'prime-hair-studio',
+        genderType: 'unisex',
+        address: Address(),
+        status: 'active',
+      ),
+    );
+    when(
+      () => salonRepository.update(
+        name: any(named: 'name'),
+        genderType: any(named: 'genderType'),
+        description: any(named: 'description'),
+        phone: any(named: 'phone'),
+        email: any(named: 'email'),
+        website: any(named: 'website'),
+        instagramUrl: any(named: 'instagramUrl'),
+        addressLine1: any(named: 'addressLine1'),
+        city: any(named: 'city'),
+        timezone: any(named: 'timezone'),
+        status: any(named: 'status'),
+      ),
+    ).thenThrow(
+      const ApiException(
+        message: 'The submitted data is invalid.',
+        type: ApiErrorType.validation,
+        statusCode: 422,
+        fieldErrors: {
+          'instagram_url': ['The Instagram URL must be a valid instagram.com profile link.'],
+        },
+      ),
+    );
+
+    await tester.pumpWidget(buildApp());
+    await tester.pump();
+    await tester.pump();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Instagram profile (optional)'),
+      'https://www.facebook.com/primehairstudio/',
+    );
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('The Instagram URL must be a valid instagram.com profile link.'), findsOneWidget);
   });
 }

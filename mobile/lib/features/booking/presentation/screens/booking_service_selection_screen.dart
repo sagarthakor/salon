@@ -8,6 +8,7 @@ import '../../../salon/presentation/providers/salon_providers.dart';
 import '../../../services/data/models/salon_service.dart';
 import '../../../services/data/models/service_category.dart';
 import '../../../services/presentation/providers/service_providers.dart';
+import '../../../services/presentation/service_instagram_launcher.dart';
 import '../providers/booking_providers.dart';
 import 'booking_flow_scaffold.dart';
 
@@ -122,14 +123,98 @@ class _ServiceTile extends ConsumerWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: CheckboxListTile(
-        value: selected,
-        onChanged: (_) => ref.read(bookingFlowControllerProvider.notifier).toggleService(service),
-        title: Text(service.name),
-        subtitle: service.description == null ? null : Text(service.description!),
-        secondary: Text('₹${service.price}\n${service.durationMinutes} min', textAlign: TextAlign.right),
-        isThreeLine: service.description != null,
+      child: InkWell(
+        onTap: () => ref.read(bookingFlowControllerProvider.notifier).toggleService(service),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(value: selected, onChanged: (_) => ref.read(bookingFlowControllerProvider.notifier).toggleService(service)),
+              _ServiceThumbnail(imageUrl: service.imageUrl),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(service.name, style: Theme.of(context).textTheme.titleMedium),
+                      if (service.description != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          service.description!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                      if (service.instagramUrl != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: InkWell(
+                            onTap: () => openInstagramUrl(Uri.parse(service.instagramUrl!)),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.play_circle_outline, size: 18, color: Theme.of(context).colorScheme.primary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Watch Service Video',
+                                  style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Text('₹${service.price}\n${service.durationMinutes} min', textAlign: TextAlign.right),
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _ServiceThumbnail extends StatelessWidget {
+  const _ServiceThumbnail({required this.imageUrl});
+
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    const size = 56.0;
+    if (imageUrl == null) {
+      return _placeholder(context, size);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        imageUrl!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _placeholder(context, size),
+      ),
+    );
+  }
+
+  Widget _placeholder(BuildContext context, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(Icons.content_cut, color: Theme.of(context).colorScheme.onSurfaceVariant),
     );
   }
 }

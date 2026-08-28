@@ -9,6 +9,8 @@ use App\Models\Service;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ServiceController extends TenantManagementController
@@ -36,7 +38,7 @@ class ServiceController extends TenantManagementController
         $data = $request->validated();
         $data['slug'] ??= Str::slug($data['name']);
         $data['status'] ??= BusinessStatus::ACTIVE;
-        $data['image'] = $request->hasFile('image') ? $request->file('image')->store('services', 'public') : null;
+        $data['image'] = $request->hasFile('image') ? $this->storeImage($request->file('image')) : null;
 
         return ApiResponse::success(new ServiceResource(Service::query()->create($data)->load('category')), 'Service created.', 201);
     }
@@ -55,8 +57,17 @@ class ServiceController extends TenantManagementController
         $data = $request->validated();
         $data['slug'] ??= Str::slug($data['name']);
         $data['status'] ??= $model->status;
+
+        // A new upload always wins over `remove_image` — no ambiguity about
+        // "replace with X" vs "remove" when both are somehow sent together.
+        // Either way, the previous file (if any) is deleted, never left
+        // orphaned in storage.
         if ($request->hasFile('image')) {
-            $data['image'] = $request->file('image')->store('services', 'public');
+            $this->deleteImage($model->image);
+            $data['image'] = $this->storeImage($request->file('image'));
+        } elseif ($request->boolean('remove_image')) {
+            $this->deleteImage($model->image);
+            $data['image'] = null;
         } else {
             unset($data['image']);
         } $model->update($data);
@@ -67,6 +78,9 @@ class ServiceController extends TenantManagementController
     public function destroy(string $service): JsonResponse
     {
         $this->managedTenant();
+        // A regular delete() is a soft delete — the image is deliberately
+        // kept (see Service::booted()'s forceDeleting hook for when it's
+        // actually removed).
         $this->service($service)->delete();
 
         return ApiResponse::success(null, 'Service deleted.');
@@ -75,5 +89,17 @@ class ServiceController extends TenantManagementController
     private function service(string $id): Service
     {
         return Service::query()->findOrFail($id);
+    }
+
+    private function storeImage(UploadedFile $file): string
+    {
+        return $file->store('services', 'public');
+    }
+
+    private function deleteImage(?string $path): void
+    {
+        if ($path !== null) {
+            Storage::disk('public')->delete($path);
+        }
     }
 }

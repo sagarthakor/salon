@@ -63,12 +63,14 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
   late final _phoneController = TextEditingController(text: widget.existing?.phone);
   late final _emailController = TextEditingController(text: widget.existing?.email);
   late final _websiteController = TextEditingController(text: widget.existing?.website);
+  late final _instagramUrlController = TextEditingController(text: widget.existing?.instagramUrl);
   late final _addressController = TextEditingController(text: widget.existing?.address.line1);
   late final _cityController = TextEditingController(text: widget.existing?.address.city);
   late String _genderType;
   late String _status;
   bool _isSubmitting = false;
   String? _error;
+  Map<String, List<String>>? _fieldErrors;
 
   bool get _isCreating => widget.existing == null;
 
@@ -86,6 +88,7 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
     _phoneController.dispose();
     _emailController.dispose();
     _websiteController.dispose();
+    _instagramUrlController.dispose();
     _addressController.dispose();
     _cityController.dispose();
     super.dispose();
@@ -96,6 +99,7 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
     setState(() {
       _isSubmitting = true;
       _error = null;
+      _fieldErrors = null;
     });
     try {
       final repository = ref.read(ownerSalonRepositoryProvider);
@@ -107,6 +111,7 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
           phone: _phoneController.text.trim(),
           email: _emailController.text.trim(),
           website: _websiteController.text.trim(),
+          instagramUrl: _instagramUrlController.text.trim(),
           addressLine1: _addressController.text.trim(),
           city: _cityController.text.trim(),
         );
@@ -118,6 +123,7 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
           phone: _phoneController.text.trim(),
           email: _emailController.text.trim(),
           website: _websiteController.text.trim(),
+          instagramUrl: _instagramUrlController.text.trim(),
           addressLine1: _addressController.text.trim(),
           city: _cityController.text.trim(),
           status: _status,
@@ -134,7 +140,10 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
         if (_isCreating) context.go('/owner');
       }
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      setState(() {
+        _error = e.message;
+        _fieldErrors = e.fieldErrors;
+      });
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -192,6 +201,16 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
             TextFormField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email')),
             const SizedBox(height: AppSpacing.md),
             TextFormField(controller: _websiteController, decoration: const InputDecoration(labelText: 'Website')),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _instagramUrlController,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: 'Instagram profile (optional)',
+                hintText: 'https://www.instagram.com/yoursalon/',
+                errorText: _fieldErrors?['instagram_url']?.first,
+              ),
+            ),
             const SizedBox(height: AppSpacing.md),
             TextFormField(controller: _addressController, decoration: const InputDecoration(labelText: 'Address')),
             const SizedBox(height: AppSpacing.md),

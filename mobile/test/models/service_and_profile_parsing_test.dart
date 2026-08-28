@@ -2,9 +2,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:salon_customer/features/profile/data/models/customer_profile.dart';
 import 'package:salon_customer/features/salon/data/models/address.dart';
 import 'package:salon_customer/features/salon/data/models/branch.dart';
+import 'package:salon_customer/features/salon/data/models/salon.dart';
 import 'package:salon_customer/features/services/data/models/salon_service.dart';
 
 void main() {
+  group('Salon.fromJson', () {
+    test('parses instagram_url — the salon\'s own official profile link, separate from any service\'s', () {
+      final json = {
+        'id': 'sal_1',
+        'name': 'Prime Hair Studio',
+        'slug': 'prime-hair-studio',
+        'gender_type': 'unisex',
+        'instagram_url': 'https://www.instagram.com/primehairstudio/',
+        'address': null,
+        'status': 'active',
+      };
+
+      final salon = Salon.fromJson(json);
+
+      expect(salon.instagramUrl, 'https://www.instagram.com/primehairstudio/');
+    });
+
+    test('instagram_url is null when absent (existing salons keep working)', () {
+      final json = {
+        'id': 'sal_1',
+        'name': 'Prime Hair Studio',
+        'slug': 'prime-hair-studio',
+        'gender_type': 'unisex',
+        'address': null,
+        'status': 'active',
+      };
+
+      final salon = Salon.fromJson(json);
+
+      expect(salon.instagramUrl, isNull);
+    });
+  });
+
   group('SalonService.fromJson', () {
     test('parses price as a num from the decimal-cast string the backend sends', () {
       final json = {
@@ -33,6 +67,49 @@ void main() {
       expect(service.durationMinutes, 30);
       expect(service.category?.name, 'Hair');
       expect(service.isActive, isTrue);
+    });
+
+    test('parses image_url, description, and instagram_url', () {
+      final json = {
+        'id': 'sv_1',
+        'branch_id': 'br_1',
+        'name': 'Haircut',
+        'slug': 'haircut',
+        'description': 'A precision fade with hot towel finish.',
+        'gender': 'unisex',
+        'price': '300.00',
+        'duration_minutes': 30,
+        'image_url': 'https://cdn.example.test/storage/services/haircut.jpg',
+        'instagram_url': 'https://www.instagram.com/reel/Cabc123/',
+        'status': 'active',
+        'sort_order': 0,
+      };
+
+      final service = SalonService.fromJson(json);
+
+      expect(service.imageUrl, 'https://cdn.example.test/storage/services/haircut.jpg');
+      expect(service.description, 'A precision fade with hot towel finish.');
+      expect(service.instagramUrl, 'https://www.instagram.com/reel/Cabc123/');
+    });
+
+    test('image_url, description, and instagram_url are all null when absent (existing services keep working)', () {
+      final json = {
+        'id': 'sv_1',
+        'branch_id': 'br_1',
+        'name': 'Haircut',
+        'slug': 'haircut',
+        'gender': 'unisex',
+        'price': '300.00',
+        'duration_minutes': 30,
+        'status': 'active',
+        'sort_order': 0,
+      };
+
+      final service = SalonService.fromJson(json);
+
+      expect(service.imageUrl, isNull);
+      expect(service.description, isNull);
+      expect(service.instagramUrl, isNull);
     });
 
     test('category is null when not eager-loaded', () {

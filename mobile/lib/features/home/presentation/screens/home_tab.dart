@@ -10,6 +10,7 @@ import '../../../booking/presentation/providers/booking_providers.dart';
 import '../../../salon/data/models/branch.dart';
 import '../../../salon/data/models/customer_salon.dart';
 import '../../../salon/presentation/providers/salon_providers.dart';
+import '../../../services/presentation/service_instagram_launcher.dart';
 
 class HomeTab extends ConsumerWidget {
   const HomeTab({super.key});
@@ -97,6 +98,23 @@ class _SalonCard extends ConsumerWidget {
               salon.salon?.name ?? salon.tenantSlug,
               style: Theme.of(context).textTheme.titleMedium,
             ),
+            if (salon.salon?.instagramUrl != null) ...[
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: () => openInstagramUrl(Uri.parse(salon.salon!.instagramUrl!)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.camera_alt_outlined, size: 18, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'View on Instagram',
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.sm),
             ...salon.branches.map((branch) => _BranchTile(branch: branch)),
           ],

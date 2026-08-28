@@ -38,6 +38,10 @@ Full CRUD (`StaffRepository`, extending the Phase 4 `/staff*` APIs) plus per-sta
 
 `OwnerServiceRepository` wraps the Phase 3 `/services*` and `/service-categories*` APIs — list/filter/CRUD for both, again with `postMultipart` for the optional service/category image.
 
+### Service media: image, description, Instagram reference
+
+A targeted feature addition on top of Phase 3's plain CRUD, giving customers a real reason to trust a listing: `service_form_screen.dart` now also collects an optional Instagram post/reel/video URL and supports removing an existing image, not just replacing it. The image picker (tap the circle avatar) and description field already existed; what changed is that the preview now actually renders (the backend previously returned a raw storage path under `image`, which was never a loadable URL — see `API_DOCUMENTATION.md`, "Service media" — the field is now `image_url`, a real public URL), and a "Remove photo" button appears whenever there's something to remove. All of this reuses the existing multipart upload path (`postMultipart`) and the existing field-error display convention (`_fieldErrors['instagram_url']`) — no new screen, no new provider. See `FLUTTER_ARCHITECTURE.md`, "Service media", for the exact widget/repository changes.
+
 ## Customer management
 
 `OwnerCustomerRepository` wraps the Phase 5 `/customers*` APIs — CRUD, search/status/gender filtering, and owner-only notes (`/customers/{id}/notes`). `GET /customers/{id}/summary` had been a known placeholder since Phase 5 (hard-coded zeros, explicitly flagged at the time as "not yet wired to `bookings`," because the booking engine didn't exist yet). Phase 8 fixes it: `CustomerController::summary` now derives `total_visits`, `completed_appointments`, `cancelled_appointments`, `no_show_count`, `total_spent`, `last_visit_at`, and `upcoming_appointment` from the customer's real booking history. This was a required fix, not an optional cleanup — the owner app's customer-details screen needed real numbers, and showing fabricated zeros next to genuinely-derived dashboard numbers would have been an inconsistent, misleading UI.
@@ -49,6 +53,10 @@ Full CRUD (`StaffRepository`, extending the Phase 4 `/staff*` APIs) plus per-sta
 ## Salon / settings management
 
 `OwnerSalonRepository` wraps `GET|POST|PUT|PATCH /salon` (profile) and `GET|PUT|PATCH /salon/settings` (a flat key-value map). The settings screen edits both the Phase 2 configuration keys and the Phase 6 booking-engine keys (`slot_interval_minutes`, `min_advance_booking_minutes`, `max_advance_booking_days`, `booking_buffer_minutes`, `cancellation_window_minutes`) in one form, since the backend already stores them together under the same settings endpoint (see `BOOKING_ENGINE.md` for what each numeric setting controls).
+
+### Salon Instagram profile (distinct from Service media above)
+
+A small, targeted addition to the existing Salon Profile screen — not a new screen: `salon_profile_screen.dart`'s already-shared create/edit form gained one Instagram profile URL field, view/add/edit/remove, saved through the same `OwnerSalonRepository.create()`/`update()` calls every other salon field already goes through. This is the salon's *own* official Instagram page (e.g. `instagram.com/primehairstudio`) — entirely separate from a service's `instagram_url` (a specific post/reel; see "Service media" above), which stays on `service_form_screen.dart` and is unaffected by this addition. Removing the URL is just clearing the text field and saving — `update()` was changed to always send `instagram_url` (even empty), the one field on this screen that needed to support genuine removal rather than "leave unchanged if untouched". See `FLUTTER_ARCHITECTURE.md`, "Salon Instagram profile", for the exact repository/widget changes.
 
 ## Reports & analytics (Phase 13)
 

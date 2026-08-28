@@ -52,11 +52,13 @@ class _ServiceFormState extends ConsumerState<_ServiceForm> {
   late final _descriptionController = TextEditingController(text: widget.existing?.description);
   late final _priceController = TextEditingController(text: widget.existing?.price.toStringAsFixed(2));
   late final _durationController = TextEditingController(text: widget.existing?.durationMinutes.toString());
+  late final _instagramUrlController = TextEditingController(text: widget.existing?.instagramUrl);
   String? _branchId;
   String? _categoryId;
   String _gender = 'unisex';
   String _status = 'active';
   String? _imagePath;
+  bool _removeImage = false;
   bool _isSubmitting = false;
   String? _errorMessage;
   Map<String, List<String>>? _fieldErrors;
@@ -76,12 +78,32 @@ class _ServiceFormState extends ConsumerState<_ServiceForm> {
     _descriptionController.dispose();
     _priceController.dispose();
     _durationController.dispose();
+    _instagramUrlController.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1200);
-    if (picked != null) setState(() => _imagePath = picked.path);
+    if (picked != null) {
+      setState(() {
+        _imagePath = picked.path;
+        _removeImage = false;
+      });
+    }
+  }
+
+  void _removeExistingImage() {
+    setState(() {
+      _imagePath = null;
+      _removeImage = true;
+    });
+  }
+
+  ImageProvider? get _imageProvider {
+    if (_imagePath != null) return FileImage(File(_imagePath!));
+    if (_removeImage) return null;
+    final existingUrl = widget.existing?.imageUrl;
+    return existingUrl != null ? NetworkImage(existingUrl) : null;
   }
 
   Future<void> _submit() async {
@@ -108,6 +130,7 @@ class _ServiceFormState extends ConsumerState<_ServiceForm> {
           durationMinutes: duration,
           status: _status,
           imagePath: _imagePath,
+          instagramUrl: _instagramUrlController.text.trim(),
         );
       } else {
         await repository.updateService(
@@ -121,6 +144,8 @@ class _ServiceFormState extends ConsumerState<_ServiceForm> {
           durationMinutes: duration,
           status: _status,
           imagePath: _imagePath,
+          instagramUrl: _instagramUrlController.text.trim(),
+          removeImage: _removeImage,
         );
         ref.invalidate(serviceDetailsProvider(widget.serviceId!));
       }
@@ -157,15 +182,20 @@ class _ServiceFormState extends ConsumerState<_ServiceForm> {
               const SizedBox(height: AppSpacing.md),
             ],
             Center(
-              child: GestureDetector(
-                onTap: _pickImage,
-                child: CircleAvatar(
-                  radius: 36,
-                  backgroundImage: _imagePath != null
-                      ? FileImage(File(_imagePath!))
-                      : (widget.existing?.image != null ? NetworkImage(widget.existing!.image!) : null) as ImageProvider?,
-                  child: (_imagePath == null && widget.existing?.image == null) ? const Icon(Icons.add_a_photo) : null,
-                ),
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 36,
+                      onBackgroundImageError: _imageProvider == null ? null : (_, _) {},
+                      backgroundImage: _imageProvider,
+                      child: _imageProvider == null ? const Icon(Icons.add_a_photo) : null,
+                    ),
+                  ),
+                  if (_imageProvider != null)
+                    TextButton(onPressed: _removeExistingImage, child: const Text('Remove photo')),
+                ],
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -198,6 +228,16 @@ class _ServiceFormState extends ConsumerState<_ServiceForm> {
             ),
             const SizedBox(height: AppSpacing.md),
             TextFormField(controller: _descriptionController, maxLines: 3, decoration: const InputDecoration(labelText: 'Description')),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _instagramUrlController,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: 'Instagram post/reel URL (optional)',
+                hintText: 'https://www.instagram.com/reel/...',
+                errorText: _fieldErrors?['instagram_url']?.first,
+              ),
+            ),
             const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String>(
               initialValue: _gender,

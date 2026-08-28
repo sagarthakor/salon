@@ -13,6 +13,7 @@ class Salon {
     this.phone,
     this.email,
     this.website,
+    this.instagramUrl,
     required this.address,
     required this.status,
   });
@@ -28,6 +29,7 @@ class Salon {
     phone: json['phone'] as String?,
     email: json['email'] as String?,
     website: json['website'] as String?,
+    instagramUrl: json['instagram_url'] as String?,
     address: Address.fromJson(json['address'] as Map<String, dynamic>?),
     status: json['status'] as String,
   );
@@ -42,6 +44,7 @@ class Salon {
   final String? phone;
   final String? email;
   final String? website;
+  final String? instagramUrl;
   final Address address;
   final String status;
 }

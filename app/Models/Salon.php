@@ -15,7 +15,7 @@ class Salon extends Model
 {
     use BelongsToTenant, HasUlids, SoftDeletes;
 
-    protected $fillable = ['name', 'slug', 'description', 'gender_type', 'logo', 'cover_image', 'phone', 'email', 'website', 'address_line_1', 'address_line_2', 'city', 'state', 'country', 'postal_code', 'latitude', 'longitude', 'timezone', 'status'];
+    protected $fillable = ['name', 'slug', 'description', 'gender_type', 'logo', 'cover_image', 'phone', 'email', 'website', 'instagram_url', 'address_line_1', 'address_line_2', 'city', 'state', 'country', 'postal_code', 'latitude', 'longitude', 'timezone', 'status'];
 
     protected function casts(): array
     {

@@ -85,6 +85,7 @@ class OwnerServiceRepository {
     required int durationMinutes,
     String? status,
     String? imagePath,
+    String? instagramUrl,
   }) async {
     final data = await _client.postMultipart<Map<String, dynamic>>('/services', {
       'branch_id': branchId,
@@ -96,10 +97,14 @@ class OwnerServiceRepository {
       'duration_minutes': durationMinutes,
       'status': ?status,
       if (imagePath != null) 'image': await MultipartFile.fromFile(imagePath),
+      if (instagramUrl != null && instagramUrl.isNotEmpty) 'instagram_url': instagramUrl,
     });
     return SalonService.fromJson(data);
   }
 
+  /// [removeImage] clears an existing image (deleted server-side, see
+  /// ServiceController::update()) — ignored when [imagePath] is also
+  /// supplied, since a fresh upload always wins.
   Future<SalonService> updateService(
     String id, {
     required String branchId,
@@ -111,6 +116,8 @@ class OwnerServiceRepository {
     required int durationMinutes,
     String? status,
     String? imagePath,
+    String? instagramUrl,
+    bool removeImage = false,
   }) async {
     final data = await _client.postMultipart<Map<String, dynamic>>('/services/$id', {
       'branch_id': branchId,
@@ -122,6 +129,8 @@ class OwnerServiceRepository {
       'duration_minutes': durationMinutes,
       'status': ?status,
       if (imagePath != null) 'image': await MultipartFile.fromFile(imagePath),
+      if (imagePath == null && removeImage) 'remove_image': '1',
+      if (instagramUrl != null && instagramUrl.isNotEmpty) 'instagram_url': instagramUrl,
     }, httpMethodOverride: 'PUT');
     return SalonService.fromJson(data);
   }
