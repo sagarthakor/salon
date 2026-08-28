@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TenantStatus;
+use App\Services\Billing\SubscriptionService;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -20,6 +21,19 @@ class Tenant extends Model
         return ['status' => TenantStatus::class];
     }
 
+    protected static function booted(): void
+    {
+        // Every tenant — however it's created (registration flow, a test
+        // fixture, a seeder) — starts a trial against the default active
+        // plan the instant it exists. See SAAS_BILLING_ARCHITECTURE.md for
+        // why this lives here rather than a controller: there is currently
+        // no HTTP-driven "create a tenant" endpoint at all, so a model hook
+        // is the one place that reliably covers every creation path.
+        static::created(function (Tenant $tenant): void {
+            app(SubscriptionService::class)->startTrialFor($tenant);
+        });
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withPivot('role')->withTimestamps();
@@ -33,5 +47,10 @@ class Tenant extends Model
     public function branches(): HasMany
     {
         return $this->hasMany(Branch::class);
+    }
+
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
     }
 }

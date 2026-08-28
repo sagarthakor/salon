@@ -16,4 +16,12 @@ abstract class TenantManagementController extends Controller
 
         return $tenant;
     }
+
+    protected function viewableTenant(): Tenant
+    {
+        $tenant = app(TenantContext::class)->require();
+        Gate::authorize('view', $tenant);
+
+        return $tenant;
+    }
 }

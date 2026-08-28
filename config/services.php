@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // Phase 10 SaaS billing — see SAAS_BILLING_ARCHITECTURE.md for why
+    // Razorpay was selected. `mode` is `test` or `live`; only `test`
+    // (sandbox) credentials should ever be used outside production.
+    'razorpay' => [
+        'key' => env('PAYMENT_KEY'),
+        'secret' => env('PAYMENT_SECRET'),
+        'webhook_secret' => env('PAYMENT_WEBHOOK_SECRET'),
+        'mode' => env('PAYMENT_GATEWAY_MODE', 'test'),
+    ],
+
 ];
