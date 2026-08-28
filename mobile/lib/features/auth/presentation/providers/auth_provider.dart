@@ -71,6 +71,35 @@ class AuthController extends StateNotifier<AuthState> {
     state = AuthState(status: AuthStatus.authenticated, user: result.user);
   }
 
+  /// Self-service salon-owner registration. Sets [ApiClient.tenantSlug] from
+  /// the response so the new owner's very first request in the owner app
+  /// already resolves to the tenant just created for them, through the same
+  /// `X-Tenant-Slug` mechanism every other tenant-scoped request already
+  /// uses (see `ApiClient`) — though the backend's own fallback (a user
+  /// with exactly one tenant membership resolves to it even with no header
+  /// at all) means this isn't strictly load-bearing for a brand-new owner
+  /// today, only ever-correct.
+  Future<void> registerOwner({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+    required String salonName,
+    String? slug,
+  }) async {
+    final result = await _repository.registerOwner(
+      name: name,
+      email: email,
+      password: password,
+      passwordConfirmation: passwordConfirmation,
+      salonName: salonName,
+      slug: slug,
+    );
+    await _storage.saveToken(result.token);
+    _ref.read(apiClientProvider).tenantSlug = result.tenantSlug;
+    state = AuthState(status: AuthStatus.authenticated, user: result.user);
+  }
+
   Future<void> logout({bool silent = false}) async {
     if (!silent) {
       try {

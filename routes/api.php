@@ -39,6 +39,11 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function (): void {
     Route::prefix('auth')->middleware('throttle:auth')->group(function (): void {
         Route::post('register', [AuthController::class, 'register']);
+        // Self-service salon-owner registration — creates a new tenant and
+        // its owner membership; see OwnerRegistrationService. Deliberately
+        // its own endpoint, never a mode/flag on `register` above, so the
+        // customer path's contract and tests never need to change.
+        Route::post('register-owner', [AuthController::class, 'registerOwner']);
         Route::post('login', [AuthController::class, 'login']);
     });
     Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('auth')->group(function (): void {

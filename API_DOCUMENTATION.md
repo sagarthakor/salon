@@ -3,11 +3,49 @@
 Base path: `/api/v1`. Responses use `success`, `message`, and `data` on success; errors use `success`, `message`, and `errors`.
 
 - `POST /auth/register` — customer registration; role and tenant input are ignored.
+- `POST /auth/register-owner` — self-service salon-owner registration. Creates a `User` (role always `salon_owner`, never client-supplied), a new `Tenant`, and the caller's owner membership on it, all in one transaction; the tenant's trial subscription starts automatically via the existing `Tenant::booted()` hook — no separate step. See "Owner onboarding" below for the full request/response shape and semantics.
 - `POST /auth/login` — email/password token login.
 - `POST /auth/logout` — revoke the current Sanctum token.
 - `GET /auth/me` — authenticated user and tenant memberships.
 
-Login/register endpoints are rate-limited to five requests per minute by email and IP. Use `Authorization: Bearer <token>` for protected endpoints.
+Login/register endpoints (including `register-owner`) are rate-limited to five requests per minute by email and IP. Use `Authorization: Bearer <token>` for protected endpoints.
+
+### Owner onboarding — `POST /auth/register-owner`
+
+The one HTTP-reachable way a `Tenant` is ever created (every other tenant-creation path — seeders, test fixtures — is outside the API). Public, unauthenticated, same `throttle:auth` limiter as `/auth/register`/`/auth/login`.
+
+**Request:**
+
+```json
+{
+  "name": "Asha Owner",
+  "email": "asha-owner@example.test",
+  "password": "SecurePassword1!",
+  "password_confirmation": "SecurePassword1!",
+  "salon_name": "Asha Hair Studio",
+  "slug": "asha-hair-studio"
+}
+```
+
+`name`, `email`, `password`/`password_confirmation` (min 12 characters), and `salon_name` are required. `slug` is optional — when omitted, one is derived from `salon_name` (via `Str::slug()`) and, if that value is already taken, a numeric suffix (`-2`, `-3`, ...) is appended until a free one is found; the database's own `tenants.slug` unique constraint is still the authoritative guard against a same-instant collision, not just this pre-check. An explicitly-supplied `slug` that's already taken is rejected with a normal `422` validation error instead — it is never silently renamed. No `role`, `tenant_id`, or membership field is ever accepted from the request; the server always assigns `salon_owner` and always creates a brand-new tenant.
+
+**Response (`201`):**
+
+```json
+{
+  "success": true,
+  "message": "Salon owner registration successful.",
+  "data": {
+    "user": { "id": 42, "name": "Asha Owner", "email": "asha-owner@example.test", "role": "salon_owner" },
+    "token": "42|abcdef0123456789...",
+    "tenant_slug": "asha-hair-studio"
+  }
+}
+```
+
+Same envelope shape as `/auth/register`'s response, plus `tenant_slug` — the one new field, since this is the only registration path that creates a tenant. The client sets this as `X-Tenant-Slug` on subsequent requests (see `ApiClient`/`ResolveTenantContext`); in practice a brand-new owner has exactly one tenant membership, so the header isn't strictly required for the very first request (`ResolveTenantContext` defaults to a user's sole membership when no header is sent), but sending it is always correct and never assumed away.
+
+After this call, the owner has full access to every existing owner endpoint (`/salon`, `/branches*`, `/services*`, `/staff*`, `/customers*`, `/bookings*`, `/reports/*`, `/coupons*`, `/membership-plans*`, `/loyalty/*`, `/subscription*`) scoped to their new tenant only — no new endpoints were added for salon setup itself, since they already existed.
 
 Salon management endpoints require `auth:sanctum` and `tenant.context`; only a tenant owner or super admin may use them.
 

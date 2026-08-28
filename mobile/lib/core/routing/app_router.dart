@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/data/models/app_role.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/register_choice_screen.dart';
+import '../../features/auth/presentation/screens/register_owner_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/booking/presentation/screens/booking_confirmation_screen.dart';
@@ -106,7 +108,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
       final location = state.matchedLocation;
-      final isAuthScreen = location == '/login' || location == '/register';
+      final isAuthScreen =
+          location == '/login' ||
+          location == '/register' ||
+          location == '/register-choice' ||
+          location == '/register-owner';
       final isSplash = location == '/splash';
 
       if (auth.status == AuthStatus.unknown) {
@@ -140,6 +146,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
+      GoRoute(path: '/register-choice', builder: (context, state) => const RegisterChoiceScreen()),
+      GoRoute(path: '/register-owner', builder: (context, state) => const RegisterOwnerScreen()),
 
       // --- Customer app (unchanged from Phase 7) ---
       GoRoute(path: '/home', builder: (context, state) => const HomeShell()),

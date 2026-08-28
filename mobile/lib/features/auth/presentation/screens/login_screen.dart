@@ -108,7 +108,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   PrimaryButton(label: 'Log in', isLoading: _isSubmitting, onPressed: _submit),
                   const SizedBox(height: AppSpacing.md),
                   TextButton(
-                    onPressed: _isSubmitting ? null : () => context.go('/register'),
+                    onPressed: _isSubmitting ? null : () => context.go('/register-choice'),
                     child: const Text("Don't have an account? Register"),
                   ),
                 ],

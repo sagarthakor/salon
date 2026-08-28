@@ -1,11 +1,12 @@
 import '../../../../core/network/api_client.dart';
 import '../models/auth_result.dart';
+import '../models/owner_registration_result.dart';
 import '../models/user.dart';
 
-/// Talks to `POST /auth/login`, `POST /auth/register`, `GET /auth/me`, and
-/// `POST /auth/logout` — the exact Phase 1 endpoints, no invented routes.
-/// UI code goes through [AuthController]/providers, never this class
-/// directly.
+/// Talks to `POST /auth/login`, `POST /auth/register`,
+/// `POST /auth/register-owner`, `GET /auth/me`, and `POST /auth/logout` — no
+/// invented routes. UI code goes through [AuthController]/providers, never
+/// this class directly.
 class AuthRepository {
   AuthRepository(this._client);
 
@@ -35,6 +36,32 @@ class AuthRepository {
       },
     );
     return AuthResult.fromJson(data);
+  }
+
+  /// Self-service salon-owner registration — creates a new tenant and its
+  /// owner membership server-side (see OwnerRegistrationService). Deliberately
+  /// a separate method/endpoint from [register]; the two are never merged
+  /// behind a role flag.
+  Future<OwnerRegistrationResult> registerOwner({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+    required String salonName,
+    String? slug,
+  }) async {
+    final data = await _client.post<Map<String, dynamic>>(
+      '/auth/register-owner',
+      data: {
+        'name': name,
+        'email': email,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+        'salon_name': salonName,
+        'slug': ?slug,
+      },
+    );
+    return OwnerRegistrationResult.fromJson(data);
   }
 
   Future<AppUser> me() async {

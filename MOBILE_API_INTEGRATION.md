@@ -163,6 +163,14 @@ X-Tenant-Slug: demo-salon
 }
 ```
 
+## Self-service salon-owner registration (owner onboarding)
+
+Not part of the original numbered phase sequence — a targeted addition closing a gap Phases 1–15 had left open: there was no way for a new person to become a salon owner at all (see "Tenant onboarding" in `PROJECT_ARCHITECTURE.md` for the investigation that found this). One new endpoint:
+
+### `POST /api/v1/auth/register-owner` (new)
+
+Full request/response documented in `API_DOCUMENTATION.md`, "Owner onboarding". The Flutter app's registration flow now branches in two: the existing customer `RegisterScreen` is completely unchanged, and a new `RegisterOwnerScreen` (owner name/email/password + salon name, with `slug` behind an optional "Advanced" toggle) calls this endpoint instead. A new `RegisterChoiceScreen` sits between `LoginScreen`'s "Register" link and the two destination screens so the distinction is explicit, never inferred. On success, `AuthController.registerOwner()` stores the token (same `SecureStorage` as every other auth flow) and sets `ApiClient.tenantSlug` from the response's `tenant_slug` — after that, the router's existing, unmodified redirect logic sends the now-authenticated `salon_owner` session straight into the real Owner App at `/owner`, exactly like an existing owner logging in would. No new owner screens were built for salon setup itself — Branches/Services/Staff/etc. already existed and needed no changes.
+
 ## Every endpoint the customer app calls
 
 | Screen / flow step | Method & path | Notes |
