@@ -31,6 +31,12 @@ class StaffListScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        // Explicit tag required: OwnerShell's IndexedStack keeps this screen
+        // mounted alongside CustomerListScreen (also a default-tag FAB), so
+        // the two default tags collide within that one subtree during
+        // animated transitions into /owner ("multiple heroes share the same
+        // tag"). See OWNER_APP_ARCHITECTURE.md.
+        heroTag: 'owner-staff-list-fab',
         onPressed: () => context.push('/owner/staff/new'),
         child: const Icon(Icons.add),
       ),

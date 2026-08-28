@@ -31,6 +31,12 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Customers')),
       floatingActionButton: FloatingActionButton(
+        // Explicit tag required: OwnerShell's IndexedStack keeps this screen
+        // mounted alongside StaffListScreen (also a default-tag FAB), so the
+        // two default tags collide within that one subtree during animated
+        // transitions into /owner ("multiple heroes share the same tag").
+        // See OWNER_APP_ARCHITECTURE.md.
+        heroTag: 'owner-customer-list-fab',
         onPressed: () => context.push('/owner/customers/new'),
         child: const Icon(Icons.add),
       ),
