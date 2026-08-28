@@ -10,11 +10,14 @@ import 'package:salon_customer/features/booking/presentation/providers/booking_p
 import 'package:salon_customer/features/owner/customers/presentation/providers/owner_customer_providers.dart';
 import 'package:salon_customer/features/owner/dashboard/data/models/dashboard_summary.dart';
 import 'package:salon_customer/features/owner/dashboard/presentation/providers/dashboard_providers.dart';
+import 'package:salon_customer/features/owner/salon/presentation/providers/owner_salon_providers.dart';
 import 'package:salon_customer/features/owner/staff/data/models/staff_member.dart';
 import 'package:salon_customer/features/owner/staff/presentation/providers/staff_providers.dart';
 import 'package:salon_customer/features/notifications/presentation/providers/notification_providers.dart';
 import 'package:salon_customer/features/profile/presentation/providers/profile_providers.dart';
 import 'package:salon_customer/features/profile/data/models/customer_profile.dart';
+import 'package:salon_customer/features/salon/data/models/address.dart';
+import 'package:salon_customer/features/salon/data/models/salon.dart';
 import 'package:salon_customer/features/salon/presentation/providers/salon_providers.dart';
 
 import '../support/fakes.dart';
@@ -31,6 +34,7 @@ void main() {
   late MockStaffRepository staffRepository;
   late MockOwnerCustomerRepository ownerCustomerRepository;
   late MockSalonRepository salonRepository;
+  late MockOwnerSalonRepository ownerSalonRepository;
   late MockProfileRepository profileRepository;
   late MockNotificationRepository notificationRepository;
 
@@ -97,6 +101,20 @@ void main() {
     // for their notification-bell badge.
     when(() => notificationRepository.unreadCount()).thenAnswer((_) async => 0);
 
+    // DashboardTab's setup-prompt safety net watches this too — an owner in
+    // these router tests already has a Salon (existing-owner behavior must
+    // stay unchanged; the "no salon yet" case is covered separately).
+    when(() => ownerSalonRepository.show()).thenAnswer(
+      (_) async => const Salon(
+        id: 'salon-1',
+        name: 'Test Salon',
+        slug: 'test-salon',
+        genderType: 'unisex',
+        address: Address(),
+        status: 'active',
+      ),
+    );
+
     return ProviderContainer(
       overrides: [
         secureStorageProvider.overrideWithValue(secureStorage),
@@ -106,6 +124,7 @@ void main() {
         staffRepositoryProvider.overrideWithValue(staffRepository),
         ownerCustomerRepositoryProvider.overrideWithValue(ownerCustomerRepository),
         salonRepositoryProvider.overrideWithValue(salonRepository),
+        ownerSalonRepositoryProvider.overrideWithValue(ownerSalonRepository),
         profileRepositoryProvider.overrideWithValue(profileRepository),
         notificationRepositoryProvider.overrideWithValue(notificationRepository),
       ],
@@ -119,6 +138,7 @@ void main() {
     staffRepository = MockStaffRepository();
     ownerCustomerRepository = MockOwnerCustomerRepository();
     salonRepository = MockSalonRepository();
+    ownerSalonRepository = MockOwnerSalonRepository();
     profileRepository = MockProfileRepository();
     notificationRepository = MockNotificationRepository();
   });

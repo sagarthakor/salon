@@ -124,8 +124,13 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // authenticated
       final role = AppRole.fromBackendRole(auth.user!.role);
+      // A brand-new self-registered owner (hasSalonProfile == false, set by
+      // AuthController.registerOwner()) lands on Salon Profile first instead
+      // of the dashboard — see "Owner onboarding: salon setup" in
+      // OWNER_APP_ARCHITECTURE.md. An existing owner's hasSalonProfile is
+      // null (never checked eagerly), so this never affects them.
       final homeFor = switch (role) {
-        AppRole.ownerAdmin => '/owner',
+        AppRole.ownerAdmin => auth.hasSalonProfile == false ? '/owner/salon' : '/owner',
         AppRole.customer => '/home',
         AppRole.staff => '/staff',
         AppRole.unknown => '/login',

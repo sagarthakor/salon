@@ -47,6 +47,18 @@ Same envelope shape as `/auth/register`'s response, plus `tenant_slug` — the o
 
 After this call, the owner has full access to every existing owner endpoint (`/salon`, `/branches*`, `/services*`, `/staff*`, `/customers*`, `/bookings*`, `/reports/*`, `/coupons*`, `/membership-plans*`, `/loyalty/*`, `/subscription*`) scoped to their new tenant only — no new endpoints were added for salon setup itself, since they already existed.
 
+**Setup-completion gap (fixed):** a brand-new owner has a `Tenant` + trial but no `Salon` yet — `GET /salon` correctly `404`s for this (a plain "this resource doesn't exist" response; the Flutter Salon Profile screen treats that 404 as "show the create form", never as an error to display). `POST /branches`, however, used to call `Salon::query()->firstOrFail()` directly to derive `salon_id`, which surfaced Laravel's raw `ModelNotFoundException` shape (`{"message": "No query results for model [App\\Models\\Salon]."}` , off-brand envelope, internal class name, effectively an unhandled-exception response) instead of a clean business error. `BranchController::store()` (via `TenantManagementController::requireSalon()`) now returns a normal `422`:
+
+```json
+{
+  "success": false,
+  "message": "Please set up your salon profile before adding a branch.",
+  "errors": { "salon": ["Salon profile not found."] }
+}
+```
+
+`requireSalon()` uses `Salon::query()->first()` — already tenant-scoped via the `BelongsToTenant` global scope, so it can never select another tenant's salon — never a global "first salon in the table" lookup. `POST /service-categories` and `POST /services` needed no equivalent fix: both already require a tenant-scoped `branch_id` (Laravel's `Rule::exists(...)->where('tenant_id', ...)`), and a salon-less tenant has zero branches, so those already fail with an ordinary `422` validation error, never a 500. See `OWNER_APP_ARCHITECTURE.md`, "Owner onboarding: salon setup", for the matching Flutter-side UX.
+
 Salon management endpoints require `auth:sanctum` and `tenant.context`; only a tenant owner or super admin may use them.
 
 - `GET|POST|PUT|PATCH /salon`

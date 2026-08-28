@@ -6,7 +6,6 @@ use App\Enums\BusinessStatus;
 use App\Http\Requests\Salon\BranchRequest;
 use App\Http\Resources\BranchResource;
 use App\Models\Branch;
-use App\Models\Salon;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -24,7 +23,9 @@ class BranchController extends TenantManagementController
     {
         $this->managedTenant();
         $data = $request->validated();
-        $data['salon_id'] = Salon::query()->firstOrFail()->id;
+        // A brand-new self-registered owner may not have a Salon profile
+        // yet — see requireSalon() on the base controller.
+        $data['salon_id'] = $this->requireSalon('adding a branch')->id;
         $data['slug'] ??= Str::slug($data['name']);
         $data['status'] ??= BusinessStatus::ACTIVE;
 

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../../core/network/api_exception.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../shared/widgets/state_views.dart';
 import '../../../../auth/presentation/providers/auth_provider.dart';
+import '../../../salon/presentation/providers/owner_salon_providers.dart';
 import '../../data/models/dashboard_summary.dart';
 import '../providers/dashboard_providers.dart';
 
@@ -18,6 +20,21 @@ class DashboardTab extends ConsumerWidget {
     // this screen only reads the name, so an unrelated AuthState change
     // (e.g. a transient loading flag elsewhere) shouldn't rebuild it.
     final user = ref.watch(authControllerProvider.select((state) => state.user));
+
+    // Safety net for an owner who navigated away before finishing Salon
+    // setup (e.g. force-closed the app right after registering, so the
+    // AuthState.hasSalonProfile-based redirect in app_router.dart never ran
+    // for this session — that flag is only set deterministically right after
+    // registerOwner(), never re-derived from the backend on session
+    // restore). Reuses the same ownerSalonProvider the Salon Profile screen
+    // already watches; a 404 here means "no salon yet", any other outcome
+    // (including still-loading or an unrelated error) shows nothing so this
+    // never gets in an already-set-up owner's way.
+    final salonAsync = ref.watch(ownerSalonProvider);
+    final needsSalonSetup = salonAsync.maybeWhen(
+      error: (error, _) => error is ApiException && error.type == ApiErrorType.notFound,
+      orElse: () => false,
+    );
 
     return Scaffold(
       appBar: AppBar(title: Text('Hi, ${user?.name.split(' ').first ?? 'there'}')),
@@ -36,6 +53,10 @@ class DashboardTab extends ConsumerWidget {
           data: (summary) => ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
             children: [
+              if (needsSalonSetup) ...[
+                const _SalonSetupBanner(),
+                const SizedBox(height: AppSpacing.lg),
+              ],
               Text("Today's bookings", style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: AppSpacing.sm),
               _BookingCountsGrid(summary: summary),
@@ -91,6 +112,27 @@ class DashboardTab extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SalonSetupBanner extends StatelessWidget {
+  const _SalonSetupBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: ListTile(
+        leading: Icon(Icons.store_outlined, color: Theme.of(context).colorScheme.onPrimaryContainer),
+        title: Text('Set up your salon profile', style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer)),
+        subtitle: Text(
+          'Add your salon details first — it unlocks branches, services, and staff.',
+          style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
+        ),
+        trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onPrimaryContainer),
+        onTap: () => context.push('/owner/salon'),
       ),
     );
   }

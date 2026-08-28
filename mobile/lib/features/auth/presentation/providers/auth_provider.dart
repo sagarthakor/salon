@@ -9,13 +9,26 @@ import '../../data/repositories/auth_repository.dart';
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
 class AuthState {
-  const AuthState({this.status = AuthStatus.unknown, this.user});
+  const AuthState({this.status = AuthStatus.unknown, this.user, this.hasSalonProfile});
 
   final AuthStatus status;
   final AppUser? user;
 
-  AuthState copyWith({AuthStatus? status, AppUser? user}) =>
-      AuthState(status: status ?? this.status, user: user ?? this.user);
+  /// Whether the current owner's tenant has completed Salon setup. `null`
+  /// for every role other than owner, and for an owner restored from an
+  /// existing session (unknown until the dashboard/router actually checks —
+  /// see the setup-prompt banner on the Owner Dashboard) — never assume
+  /// `null` means "no salon". Only `registerOwner()` sets this deterministically
+  /// (`false`, since a just-created tenant can never have a salon yet); this
+  /// is a routing hint only, never used for authorization — the backend
+  /// remains authoritative (`requireSalon()` on every dependent endpoint).
+  final bool? hasSalonProfile;
+
+  AuthState copyWith({AuthStatus? status, AppUser? user, bool? hasSalonProfile}) => AuthState(
+    status: status ?? this.status,
+    user: user ?? this.user,
+    hasSalonProfile: hasSalonProfile ?? this.hasSalonProfile,
+  );
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository(ref.watch(apiClientProvider)));
@@ -97,7 +110,16 @@ class AuthController extends StateNotifier<AuthState> {
     );
     await _storage.saveToken(result.token);
     _ref.read(apiClientProvider).tenantSlug = result.tenantSlug;
-    state = AuthState(status: AuthStatus.authenticated, user: result.user);
+    state = AuthState(status: AuthStatus.authenticated, user: result.user, hasSalonProfile: false);
+  }
+
+  /// Called once the owner's Salon has just been created (see
+  /// `SalonProfileScreen`'s create-mode). Routing-only, mirroring
+  /// `registerOwner()`'s deterministic `false` — never re-fetched from the
+  /// backend here, since the screen just got a 201 from the same endpoint
+  /// the router would otherwise re-check.
+  void markSalonProfileComplete() {
+    state = state.copyWith(hasSalonProfile: true);
   }
 
   Future<void> logout({bool silent = false}) async {

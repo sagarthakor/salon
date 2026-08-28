@@ -6,6 +6,7 @@ import '../../../../../core/network/api_exception.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../shared/widgets/primary_button.dart';
 import '../../../../../shared/widgets/state_views.dart';
+import '../../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../salon/data/models/salon.dart';
 import '../providers/owner_salon_providers.dart';
 
@@ -25,10 +26,21 @@ class SalonProfileScreen extends ConsumerWidget {
       ),
       body: salonAsync.when(
         loading: () => const LoadingView(),
-        error: (error, _) => ErrorView(
-          message: error is ApiException ? error.message : 'Could not load salon profile.',
-          onRetry: () => ref.invalidate(ownerSalonProvider),
-        ),
+        error: (error, _) {
+          // A brand-new self-registered owner has no Salon yet — the backend
+          // reports this as a plain 404 on GET /salon (see
+          // TenantManagementController::requireSalon() for why this is a
+          // deliberately different, business-level 422 on the branch/service
+          // creation paths instead). Never show that raw 404 as an error:
+          // this is an expected onboarding state, so offer the create form.
+          if (error is ApiException && error.type == ApiErrorType.notFound) {
+            return const _SalonForm(existing: null);
+          }
+          return ErrorView(
+            message: error is ApiException ? error.message : 'Could not load salon profile.',
+            onRetry: () => ref.invalidate(ownerSalonProvider),
+          );
+        },
         data: (salon) => _SalonForm(existing: salon),
       ),
     );
@@ -38,7 +50,7 @@ class SalonProfileScreen extends ConsumerWidget {
 class _SalonForm extends ConsumerStatefulWidget {
   const _SalonForm({required this.existing});
 
-  final Salon existing;
+  final Salon? existing;
 
   @override
   ConsumerState<_SalonForm> createState() => _SalonFormState();
@@ -46,23 +58,25 @@ class _SalonForm extends ConsumerStatefulWidget {
 
 class _SalonFormState extends ConsumerState<_SalonForm> {
   final _formKey = GlobalKey<FormState>();
-  late final _nameController = TextEditingController(text: widget.existing.name);
-  late final _descriptionController = TextEditingController(text: widget.existing.description);
-  late final _phoneController = TextEditingController(text: widget.existing.phone);
-  late final _emailController = TextEditingController(text: widget.existing.email);
-  late final _websiteController = TextEditingController(text: widget.existing.website);
-  late final _addressController = TextEditingController(text: widget.existing.address.line1);
-  late final _cityController = TextEditingController(text: widget.existing.address.city);
+  late final _nameController = TextEditingController(text: widget.existing?.name);
+  late final _descriptionController = TextEditingController(text: widget.existing?.description);
+  late final _phoneController = TextEditingController(text: widget.existing?.phone);
+  late final _emailController = TextEditingController(text: widget.existing?.email);
+  late final _websiteController = TextEditingController(text: widget.existing?.website);
+  late final _addressController = TextEditingController(text: widget.existing?.address.line1);
+  late final _cityController = TextEditingController(text: widget.existing?.address.city);
   late String _genderType;
   late String _status;
   bool _isSubmitting = false;
   String? _error;
 
+  bool get _isCreating => widget.existing == null;
+
   @override
   void initState() {
     super.initState();
-    _genderType = widget.existing.genderType;
-    _status = widget.existing.status;
+    _genderType = widget.existing?.genderType ?? 'unisex';
+    _status = widget.existing?.status ?? 'active';
   }
 
   @override
@@ -84,20 +98,40 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
       _error = null;
     });
     try {
-      await ref.read(ownerSalonRepositoryProvider).update(
-        name: _nameController.text.trim(),
-        genderType: _genderType,
-        description: _descriptionController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-        website: _websiteController.text.trim(),
-        addressLine1: _addressController.text.trim(),
-        city: _cityController.text.trim(),
-        status: _status,
-      );
+      final repository = ref.read(ownerSalonRepositoryProvider);
+      if (_isCreating) {
+        await repository.create(
+          name: _nameController.text.trim(),
+          genderType: _genderType,
+          description: _descriptionController.text.trim(),
+          phone: _phoneController.text.trim(),
+          email: _emailController.text.trim(),
+          website: _websiteController.text.trim(),
+          addressLine1: _addressController.text.trim(),
+          city: _cityController.text.trim(),
+        );
+      } else {
+        await repository.update(
+          name: _nameController.text.trim(),
+          genderType: _genderType,
+          description: _descriptionController.text.trim(),
+          phone: _phoneController.text.trim(),
+          email: _emailController.text.trim(),
+          website: _websiteController.text.trim(),
+          addressLine1: _addressController.text.trim(),
+          city: _cityController.text.trim(),
+          status: _status,
+        );
+      }
       ref.invalidate(ownerSalonProvider);
+      if (_isCreating) {
+        ref.read(authControllerProvider.notifier).markSalonProfileComplete();
+      }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Salon updated.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_isCreating ? 'Salon profile created.' : 'Salon updated.')),
+        );
+        if (_isCreating) context.go('/owner');
       }
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -115,6 +149,17 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (_isCreating) ...[
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(12)),
+                child: Text(
+                  "Let's set up your salon. This is the first step before you can add branches, services, and staff.",
+                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             if (_error != null) ...[
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -152,17 +197,23 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
             const SizedBox(height: AppSpacing.md),
             TextFormField(controller: _cityController, decoration: const InputDecoration(labelText: 'City')),
             const SizedBox(height: AppSpacing.md),
-            DropdownButtonFormField<String>(
-              initialValue: _status,
-              decoration: const InputDecoration(labelText: 'Status'),
-              items: const [
-                DropdownMenuItem(value: 'active', child: Text('Active')),
-                DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-              ],
-              onChanged: (v) => setState(() => _status = v ?? 'active'),
+            if (!_isCreating) ...[
+              DropdownButtonFormField<String>(
+                initialValue: _status,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: const [
+                  DropdownMenuItem(value: 'active', child: Text('Active')),
+                  DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
+                ],
+                onChanged: (v) => setState(() => _status = v ?? 'active'),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            PrimaryButton(
+              label: _isCreating ? 'Create salon profile' : 'Save',
+              isLoading: _isSubmitting,
+              onPressed: _submit,
             ),
-            const SizedBox(height: AppSpacing.lg),
-            PrimaryButton(label: 'Save', isLoading: _isSubmitting, onPressed: _submit),
           ],
         ),
       ),
