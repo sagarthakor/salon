@@ -22,9 +22,10 @@ import '../support/fakes.dart';
 void main() {
   late MockOwnerSalonRepository salonRepository;
   late MockAuthRepository authRepository;
+  late GoRouter router;
 
   Widget buildApp() {
-    final router = GoRouter(
+    router = GoRouter(
       initialLocation: '/owner/salon',
       routes: [
         GoRoute(path: '/owner/salon', builder: (context, state) => const SalonProfileScreen()),
@@ -342,5 +343,102 @@ void main() {
     await tester.pump();
 
     expect(find.text('The Instagram URL must be a valid instagram.com profile link.'), findsOneWidget);
+  });
+
+  group('real-device bug fix: settings icon reachability', () {
+    // Root cause of the raw "No query results for model [App\Models\Salon]"
+    // error real-device testing found: Booking Settings requires a Salon
+    // to exist (`SalonController::settings()`), but the icon reaching it
+    // was shown unconditionally, even while the owner was still filling in
+    // the CREATE form. See MASTER_CATALOG_ARCHITECTURE.md, "Onboarding UI
+    // safety".
+    testWidgets('does not show the settings icon while creating a new salon profile', (tester) async {
+      when(() => salonRepository.show()).thenThrow(
+        const ApiException(message: 'No query results for model [App\\Models\\Salon].', type: ApiErrorType.notFound, statusCode: 404),
+      );
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byIcon(Icons.settings_outlined), findsNothing);
+    });
+
+    testWidgets('shows the settings icon once an existing salon has loaded', (tester) async {
+      when(() => salonRepository.show()).thenAnswer(
+        (_) async => const Salon(
+          id: 'salon-1',
+          name: 'Royal Gents',
+          slug: 'royal-gents',
+          genderType: 'unisex',
+          address: Address(),
+          status: 'active',
+        ),
+      );
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+    });
+  });
+
+  group('real-device bug fix: salon state refreshes without an app restart', () {
+    // The other half of the real-device fix: the backend now provisions the
+    // Salon (and its default branch/catalog) atomically inside POST /salon,
+    // so `show()` must resolve the fresh Salon on its very next call — the
+    // exact call `ref.invalidate(ownerSalonProvider)` triggers — with no
+    // app restart in between. Before this fix, restarting the app was the
+    // only way this ever worked on the real device.
+    testWidgets('after creating a salon, navigating back to this screen shows the fresh salon immediately, not the create form again', (tester) async {
+      var salonCreated = false;
+      when(() => salonRepository.show()).thenAnswer((_) async {
+        if (!salonCreated) {
+          throw const ApiException(message: 'No query results for model [App\\Models\\Salon].', type: ApiErrorType.notFound, statusCode: 404);
+        }
+        return const Salon(id: 'salon-9', name: 'Sunny Unisex Salon', slug: 'sunny-unisex-salon', genderType: 'unisex', address: Address(), status: 'active');
+      });
+      when(
+        () => salonRepository.create(
+          name: any(named: 'name'),
+          genderType: any(named: 'genderType'),
+          description: any(named: 'description'),
+          phone: any(named: 'phone'),
+          email: any(named: 'email'),
+          website: any(named: 'website'),
+          instagramUrl: any(named: 'instagramUrl'),
+          addressLine1: any(named: 'addressLine1'),
+          city: any(named: 'city'),
+          timezone: any(named: 'timezone'),
+        ),
+      ).thenAnswer((_) async {
+        salonCreated = true;
+        return const Salon(id: 'salon-9', name: 'Sunny Unisex Salon', slug: 'sunny-unisex-salon', genderType: 'unisex', address: Address(), status: 'active');
+      });
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Create salon profile'), findsOneWidget, reason: 'no salon yet');
+
+      await tester.enterText(find.widgetWithText(TextFormField, 'Salon name'), 'Sunny Unisex Salon');
+      await tester.ensureVisible(find.text('Create salon profile'));
+      await tester.tap(find.text('Create salon profile'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Owner Dashboard'), findsOneWidget, reason: 'create() succeeded and navigated away');
+
+      // Simulate the owner tapping back into Salon (e.g. from the dashboard
+      // setup banner, or the More tab) in the very same app session.
+      router.go('/owner/salon');
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(TextFormField, 'Sunny Unisex Salon'), findsOneWidget, reason: 'the freshly created salon must load without a restart');
+      expect(find.text('Save'), findsOneWidget);
+      expect(find.text('Create salon profile'), findsNothing);
+      expect(find.textContaining('No query results for model'), findsNothing);
+      expect(find.textContaining('App\\Models\\Salon'), findsNothing);
+    });
   });
 }

@@ -21,7 +21,14 @@ class SalonProfileScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Salon'),
         actions: [
-          IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () => context.push('/owner/salon/settings')),
+          // Booking Settings requires a Salon to already exist
+          // (`SalonController::settings()`) — only ever shown once
+          // `ownerSalonProvider` has actually resolved one, so a
+          // brand-new owner still filling in Salon Details can never tap
+          // into a screen that would 404 on them. See
+          // MASTER_CATALOG_ARCHITECTURE.md, "Onboarding UI safety".
+          if (salonAsync.hasValue)
+            IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () => context.push('/owner/salon/settings')),
         ],
       ),
       body: salonAsync.when(
@@ -135,7 +142,9 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_isCreating ? 'Salon profile created.' : 'Salon updated.')),
+          SnackBar(
+            content: Text(_isCreating ? 'Your salon is ready — common services have been added for you! 🎉' : 'Salon updated.'),
+          ),
         );
         if (_isCreating) context.go('/owner');
       }
@@ -163,7 +172,7 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(color: Theme.of(context).colorScheme.primaryContainer, borderRadius: BorderRadius.circular(12)),
                 child: Text(
-                  "Let's set up your salon. This is the first step before you can add branches, services, and staff.",
+                  "Let's set up your salon. We'll add a starter branch and common services for you automatically — you can customize everything afterward.",
                   style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
                 ),
               ),

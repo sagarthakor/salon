@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:salon_customer/core/network/api_exception.dart';
 import 'package:salon_customer/core/providers.dart';
 import 'package:salon_customer/features/owner/salon/presentation/providers/owner_salon_providers.dart';
 import 'package:salon_customer/features/owner/salon/presentation/screens/salon_settings_screen.dart';
@@ -83,5 +84,39 @@ void main() {
     expect(captured['booking_enabled'], isTrue);
     expect(captured['slot_interval_minutes'], 15);
     expect(captured['max_advance_booking_days'], 30);
+  });
+
+  group('real-device bug fix: no Salon yet', () {
+    // Root cause of the raw "No query results for model [App\Models\Salon]"
+    // error real-device testing found: this screen is the only place in the
+    // app that rendered a raw ApiException.message. It's now unreachable
+    // during onboarding (see salon_profile_screen_test.dart), but this is
+    // the last line of defense in case it's ever reached with no Salon yet.
+    testWidgets('shows a friendly message instead of the raw backend 404 when no salon exists yet', (tester) async {
+      when(() => salonRepository.settings()).thenThrow(
+        const ApiException(message: 'No query results for model [App\\Models\\Salon].', type: ApiErrorType.notFound, statusCode: 404),
+      );
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Please set up your salon profile first.'), findsOneWidget);
+      expect(find.textContaining('No query results for model'), findsNothing);
+      expect(find.textContaining('App\\Models\\Salon'), findsNothing);
+    });
+
+    testWidgets('still shows the raw message with a retry button for non-404 errors', (tester) async {
+      when(() => salonRepository.settings()).thenThrow(
+        const ApiException(message: 'The server ran into a problem. Please try again shortly.', type: ApiErrorType.server, statusCode: 500),
+      );
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('The server ran into a problem. Please try again shortly.'), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+    });
   });
 }

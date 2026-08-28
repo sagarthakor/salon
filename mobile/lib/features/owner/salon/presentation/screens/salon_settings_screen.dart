@@ -21,10 +21,22 @@ class SalonSettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Booking settings')),
       body: settingsAsync.when(
         loading: () => const LoadingView(),
-        error: (error, _) => ErrorView(
-          message: error is ApiException ? error.message : 'Could not load settings.',
-          onRetry: () => ref.invalidate(ownerSalonSettingsProvider),
-        ),
+        error: (error, _) {
+          // Booking settings live under a Salon that may not exist yet for
+          // a brand-new owner still mid-setup (see
+          // TenantManagementController::requireSalon() / SalonController::
+          // settings()) — never show that raw 404 as an error; this screen
+          // is only reachable once a Salon exists anyway (see
+          // SalonProfileScreen's settings icon), but this is the last line
+          // of defense against ever displaying it.
+          if (error is ApiException && error.type == ApiErrorType.notFound) {
+            return const ErrorView(message: 'Please set up your salon profile first.');
+          }
+          return ErrorView(
+            message: error is ApiException ? error.message : 'Could not load settings.',
+            onRetry: () => ref.invalidate(ownerSalonSettingsProvider),
+          );
+        },
         data: (settings) => _SettingsForm(existing: settings),
       ),
     );
