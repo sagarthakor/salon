@@ -22,6 +22,19 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.context' => ResolveTenantContext::class,
             'subscription.active' => EnsureActiveSubscription::class,
         ]);
+
+        // This is a pure JSON API with no 'login' named route (no web
+        // auth views exist). Laravel's own default guest-redirect tries to
+        // build one regardless of what the client's Accept header says,
+        // which throws RouteNotFoundException — a real 500 instead of the
+        // intended 401 — for any unauthenticated request that doesn't
+        // happen to send `Accept: application/json` (every client this
+        // project controls does, but a bare curl/health-check/monitoring
+        // request won't). Returning null here means "never redirect,
+        // always let AuthenticationException fall through to the JSON
+        // exception handler below" — found during Phase 15 production
+        // smoke testing; see SECURITY_HARDENING.md.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

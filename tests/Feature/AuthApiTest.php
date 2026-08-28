@@ -38,4 +38,20 @@ class AuthApiTest extends TestCase
         $this->postJson('/api/v1/auth/login', ['email' => 'missing@example.test', 'password' => 'wrong'])->assertStatus(422)->assertJsonPath('success', false);
         $this->getJson('/api/v1/auth/me')->assertUnauthorized()->assertJsonPath('success', false);
     }
+
+    /**
+     * Regression test found during Phase 15 production smoke testing: every
+     * other test in this suite uses `getJson()`/`postJson()`, which Laravel's
+     * test helpers force an `Accept: application/json` header for — so none
+     * of them could have caught this. A plain `get()` (no forced Accept
+     * header, matching a bare curl request, a health-check probe, or any
+     * client that doesn't set it) used to 500 instead of 401, because
+     * Laravel's default `redirectGuestsTo` tries to build a URL for a
+     * `login` route this pure-API app has never defined. Fixed in
+     * `bootstrap/app.php` via `redirectGuestsTo(fn () => null)`.
+     */
+    public function test_an_unauthenticated_request_without_an_accept_header_still_gets_401_not_500(): void
+    {
+        $this->get('/api/v1/auth/me')->assertUnauthorized();
+    }
 }
