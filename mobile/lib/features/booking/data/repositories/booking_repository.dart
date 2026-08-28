@@ -32,6 +32,11 @@ class BookingRepository {
     return AvailabilityResult.fromJson(data);
   }
 
+  /// [phone]/[countryCode] are only actually required the first time a
+  /// customer books with a given salon — the backend auto-creates their
+  /// `customer_profiles` row from the authenticated user the moment it's
+  /// needed, so an existing customer never needs to supply these at all.
+  /// See CustomerBookingController::resolveOrCreateCustomer().
   Future<Booking> createBooking({
     required String branchId,
     required String date,
@@ -40,6 +45,8 @@ class BookingRepository {
     String? notes,
     String? couponCode,
     int? loyaltyPointsToRedeem,
+    String? phone,
+    String? countryCode,
   }) async {
     final data = await _client.post<Map<String, dynamic>>(
       '/customer/bookings',
@@ -51,17 +58,22 @@ class BookingRepository {
         if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
         'coupon_code': ?couponCode,
         'loyalty_points_to_redeem': ?loyaltyPointsToRedeem,
+        'phone': ?phone,
+        'country_code': ?countryCode,
       },
     );
     return Booking.fromJson(data);
   }
 
-  /// Read-only — never creates a booking. See BookingPricing.
+  /// Read-only — never creates a booking. See BookingPricing. [phone] is
+  /// only needed for the same first-time-customer reason as [createBooking].
   Future<BookingPricing> pricePreview({
     required String branchId,
     required List<String> serviceIds,
     String? couponCode,
     int? loyaltyPointsToRedeem,
+    String? phone,
+    String? countryCode,
   }) async {
     final data = await _client.post<Map<String, dynamic>>(
       '/customer/bookings/price-preview',
@@ -70,6 +82,8 @@ class BookingRepository {
         'service_ids': serviceIds,
         'coupon_code': ?couponCode,
         'loyalty_points_to_redeem': ?loyaltyPointsToRedeem,
+        'phone': ?phone,
+        'country_code': ?countryCode,
       },
     );
     return BookingPricing.fromJson(data);

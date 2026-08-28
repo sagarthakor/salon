@@ -81,6 +81,12 @@ class BookingFlowController extends StateNotifier<BookingFlowState> {
     state = state.copyWith(notes: notes);
   }
 
+  /// Only ever needed once per salon — the first booking a customer makes
+  /// with it. See [BookingFlowState.requiresPhone].
+  void setPhone(String phone) {
+    state = state.copyWith(phone: phone);
+  }
+
   void setCouponCode(String code) {
     state = state.copyWith(couponCode: code, clearPricing: true, clearPricingError: true);
   }
@@ -103,10 +109,16 @@ class BookingFlowController extends StateNotifier<BookingFlowState> {
         serviceIds: state.selectedServices.map((s) => s.id).toList(),
         couponCode: state.couponCode.trim().isEmpty ? null : state.couponCode.trim(),
         loyaltyPointsToRedeem: state.loyaltyPointsToRedeem,
+        phone: state.phone.trim().isEmpty ? null : state.phone.trim(),
       );
-      state = state.copyWith(pricing: pricing, isPricingLoading: false);
+      state = state.copyWith(pricing: pricing, isPricingLoading: false, requiresPhone: false);
     } on ApiException catch (e) {
-      state = state.copyWith(isPricingLoading: false, pricingError: e.message, clearPricing: true);
+      state = state.copyWith(
+        isPricingLoading: false,
+        pricingError: e.message,
+        clearPricing: true,
+        requiresPhone: e.fieldErrors?.containsKey('phone') ?? false,
+      );
     }
   }
 
@@ -130,14 +142,25 @@ class BookingFlowController extends StateNotifier<BookingFlowState> {
         notes: state.notes,
         couponCode: state.couponCode.trim().isEmpty ? null : state.couponCode.trim(),
         loyaltyPointsToRedeem: state.loyaltyPointsToRedeem,
+        phone: state.phone.trim().isEmpty ? null : state.phone.trim(),
       );
-      state = state.copyWith(isSubmitting: false, createdBooking: booking);
+      state = state.copyWith(isSubmitting: false, createdBooking: booking, requiresPhone: false);
       return true;
     } on ApiException catch (e) {
+      final needsPhone = e.fieldErrors?.containsKey('phone') ?? false;
       final message = e.type == ApiErrorType.conflict
           ? 'That slot is no longer available. Please select another time.'
           : e.message;
-      state = state.copyWith(isSubmitting: false, submissionError: message, clearSelectedSlot: true);
+      // A slot conflict is the only failure that should clear the chosen
+      // slot — a missing-phone (or any other) error must leave everything
+      // else the customer picked untouched so they can just fill in the
+      // phone field and retry.
+      state = state.copyWith(
+        isSubmitting: false,
+        submissionError: message,
+        clearSelectedSlot: e.type == ApiErrorType.conflict,
+        requiresPhone: needsPhone,
+      );
       if (e.type == ApiErrorType.conflict) {
         await loadAvailability();
       }

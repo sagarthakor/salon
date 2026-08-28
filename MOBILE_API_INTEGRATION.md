@@ -10,7 +10,7 @@ Phase 7's instructions are explicit: don't invent endpoints, and if a required A
 
 **Problem**: `GET /auth/me` returns `tenant_user` memberships, but customers are *deliberately never* `tenant_user` members (a Phase 5 design decision — see `CUSTOMER_ARCHITECTURE.md`). There was therefore no way for an authenticated customer to discover which salon(s) they're a customer of at all — the home screen would have nothing to show.
 
-**Fix**: `CustomerSalonController@index` lists the tenants where a `customer_profiles` row already links to the authenticated user (created by salon staff, per Phase 5), returning each tenant's salon profile and active branches. It is **not** a public salon directory/search — a user with no existing customer relationship to any salon sees an empty list, matching reality. Building a true public discovery feature (search all salons, browse without a relationship) was judged out of scope: it's a new, undesigned product surface (search, geo, "featured salons," public/anonymous access) with no precedent anywhere in Phases 1–6, not a minimal fix.
+**Fix**: `CustomerSalonController@index` lists the tenants where a `customer_profiles` row already links to the authenticated user (created by salon staff, per Phase 5), returning each tenant's salon profile and active branches. It was **not** a public salon directory/search at the time — a user with no existing customer relationship to any salon saw an empty list. A true public discovery feature (search all salons, browse without a relationship) was added later — see "Customer salon discovery and first-time booking" below.
 
 ```
 GET /api/v1/customer/salons
@@ -198,7 +198,8 @@ A new tenant no longer starts with zero services — `POST /branches` now also p
 | Login | `POST /auth/login` | `{email, password}` → `{user, token}`. |
 | Register | `POST /auth/register` | `{name, email, password, password_confirmation}`; role/tenant ignored by the backend (Phase 1). |
 | Logout | `POST /auth/logout` | Revokes the current Sanctum token; local session is cleared regardless of the response. |
-| Home: my salons | `GET /customer/salons` | New in Phase 7 — see above. |
+| Home: find a salon (discovery) | `GET /customer/discover-salons` | New — see "Customer salon discovery and first-time booking" below. Replaces `mySalonsProvider`/`GET /customer/salons` as the Home tab's data source; membership is no longer required to see a salon. |
+| Salon → branch selection | `GET /customer/salons/{salon}/branches` | New — same section. Single-branch salons auto-advance past this screen client-side. |
 | Select branch → services | `GET /branches/{branch}/services` | New in Phase 7 — see above. |
 | Select date/staff → availability | `GET /branches/{branch}/availability?date=&service_ids[]=&staff_id=` | `staff_id` omitted = "any available staff." Never computed client-side. |
 | Confirm booking | `POST /customer/bookings` | `{branch_id, date, start_time, items:[{service_id, staff_id}], notes}`. `customer_id` is never sent — the backend resolves it from the caller's own `customer_profiles` row. A `409` means the slot was taken; the client shows "no longer available" and refetches availability. |
@@ -251,6 +252,14 @@ Every response is `{success, message, data}` (success) or `{success, message, er
 ## Coupons / membership / loyalty (Phase 12)
 
 `POST /customer/bookings` gained two optional fields (`coupon_code`, `loyalty_points_to_redeem`) — an existing request with neither still creates a booking exactly as before. A new `POST /customer/bookings/price-preview` lets the booking summary screen show the effect of a coupon/loyalty redemption before confirming, without creating anything; the real booking creation call recalculates independently, so the preview response is never sent back to the server as if it were authoritative. See `LOYALTY_MEMBERSHIP_COUPON_ARCHITECTURE.md`.
+
+## Customer salon discovery and first-time booking
+
+Real-device QA found the Phase 7 `GET /customer/salons` endpoint above is membership-only by design, so a brand-new customer — or even one a salon owner manually registered, since staff-side "add a customer" never links `user_id` — saw an empty Home tab. See `CUSTOMER_ARCHITECTURE.md`, "Customer salon discovery and first-time booking", for the full backend design. Mobile-side:
+
+- `HomeTab` now calls `discoverSalonsProvider` (`GET /customer/discover-salons`) instead of `mySalonsProvider`, with a client-side name filter over the results ("Search salons") and the empty state changed from "You're not registered as a customer at any salon yet" to "No salons available near you yet."
+- Tapping a salon card pushes a new route, `/salons/:salonId/branches` (`SalonBranchSelectionScreen`), which calls `salonBranchesProvider(salonId)` (`GET /customer/salons/{salon}/branches`). A single active branch auto-selects and advances straight to `/booking/audience`, matching the existing `selectedBranchProvider` contract those downstream screens already expect — nothing about `AudienceSelectionScreen`, `BookingServiceSelectionScreen`, or the audience/service catalog changed.
+- `POST /customer/bookings` and `POST /customer/bookings/price-preview` both gained optional `phone`/`country_code` fields, only actually required (enforced server-side, reported as a normal `phone` field validation error) the first time a customer books with a given salon. `BookingFlowState` gained `phone`/`requiresPhone`; `BookingSummaryScreen` shows a phone `TextField` only once `requiresPhone` is set by a failed `confirmBooking()`/`previewPricing()` call, and retrying with a phone entered completes the same booking attempt — no second/parallel booking flow, no new screen in the booking funnel itself.
 
 ## Booking flow ordering vs. the spec diagram
 

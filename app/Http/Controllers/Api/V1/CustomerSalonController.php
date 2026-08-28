@@ -16,11 +16,16 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Lists the salons the authenticated customer already has a relationship with
- * (i.e. tenants where a customer_profiles row links to this user). This is
- * deliberately not a public salon directory/search — the customer must already
- * be a registered customer of a salon (created by staff, per Phase 5) for it to
- * appear here. See CUSTOMER_ARCHITECTURE.md and MOBILE_API_INTEGRATION.md.
+ * `index()` lists the salons the authenticated customer already has a
+ * relationship with (i.e. tenants where a customer_profiles row links to
+ * this user) — kept for existing callers/tests, unchanged.
+ *
+ * `discover()`/`branches()` are the public/customer salon directory: cross-
+ * tenant by design, filtered only by `Salon`/`Branch` status, never by
+ * customer_profiles membership — a brand-new customer must be able to find
+ * and book a salon without a staff member registering them first. See
+ * CUSTOMER_ARCHITECTURE.md, "Customer discovery and first-time booking",
+ * and MOBILE_API_INTEGRATION.md.
  */
 class CustomerSalonController extends Controller
 {
@@ -44,5 +49,45 @@ class CustomerSalonController extends Controller
         })->values();
 
         return ApiResponse::success($result, 'Salons retrieved.');
+    }
+
+    /**
+     * Public/customer salon directory — deliberately cross-tenant and
+     * independent of `index()` above: a brand-new customer with zero
+     * `customer_profiles` rows anywhere must still be able to browse and
+     * pick a salon. Never filtered by membership. Every other field this
+     * exposes via `SalonResource` is already customer-safe (no owner/admin/
+     * billing/staff data) — the same resource `index()` already returns to
+     * customers. See CUSTOMER_ARCHITECTURE.md, "Customer discovery and
+     * first-time booking".
+     */
+    public function discover(): JsonResponse
+    {
+        $salons = Salon::withoutGlobalScope('tenant')->where('status', BusinessStatus::ACTIVE)->orderBy('name')->get();
+
+        return ApiResponse::success(SalonResource::collection($salons), 'Salons retrieved.');
+    }
+
+    /**
+     * Active branches for a salon the customer picked from `discover()`.
+     * The salon (and therefore its tenant) is resolved entirely server-side
+     * from `$salon` — never from a client-supplied tenant id — and
+     * `salons.tenant_id`/`salons.slug` are both globally unique (see the
+     * `create_salon_management_tables` migration), so this can never leak
+     * another tenant's branches. Reachable without `X-Tenant-Slug` and
+     * without any customer_profiles row, same as `discover()`.
+     */
+    public function branches(string $salon): JsonResponse
+    {
+        $salonModel = Salon::withoutGlobalScope('tenant')->where('status', BusinessStatus::ACTIVE)->findOrFail($salon);
+        $context = app(TenantContext::class);
+        $context->set($salonModel->tenant);
+        try {
+            $branches = Branch::query()->where('salon_id', $salonModel->id)->where('status', BusinessStatus::ACTIVE)->orderBy('name')->get();
+        } finally {
+            $context->clear();
+        }
+
+        return ApiResponse::success(BranchResource::collection($branches), 'Branches retrieved.');
     }
 }

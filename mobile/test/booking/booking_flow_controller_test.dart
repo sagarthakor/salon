@@ -245,4 +245,124 @@ void main() {
     expect(controller.state.staffMode, StaffSelectionMode.any);
     expect(controller.state.selectedStaffId, isNull);
   });
+
+  group('real-device bug fix: first-time-customer phone requirement', () {
+    // The backend auto-creates a first-time customer's profile on booking —
+    // see CustomerBookingController::resolveOrCreateCustomer() — but needs a
+    // phone number to do it, reported as a `phone` field error.
+    test('confirmBooking sets requiresPhone on a phone field error, and canConfirm becomes false', () async {
+      controller.selectBranch(branch);
+      controller.toggleService(haircut);
+      when(
+        () => repository.availability(
+          branchId: any(named: 'branchId'),
+          date: any(named: 'date'),
+          serviceIds: any(named: 'serviceIds'),
+          staffId: any(named: 'staffId'),
+        ),
+      ).thenAnswer(
+        (_) async => AvailabilityResult.fromJson({
+          'date': '2026-09-01',
+          'duration_minutes': 30,
+          'buffer_minutes': 0,
+          'slots': [
+            {'start_time': '09:00', 'end_time': '09:30', 'staff_ids': ['st_1']},
+          ],
+          'staff': [
+            {'id': 'st_1', 'name': 'Amit'},
+          ],
+        }),
+      );
+      controller.setDate(DateTime(2026, 9, 1));
+      await Future<void>.delayed(Duration.zero);
+      controller.selectSlot(controller.state.availability!.slots.first);
+
+      when(
+        () => repository.createBooking(
+          branchId: any(named: 'branchId'),
+          date: any(named: 'date'),
+          startTime: any(named: 'startTime'),
+          items: any(named: 'items'),
+          notes: any(named: 'notes'),
+        ),
+      ).thenThrow(
+        const ApiException(
+          message: 'A valid phone number is required to complete your first booking with this salon.',
+          type: ApiErrorType.validation,
+          fieldErrors: {'phone': ['The phone field is required.']},
+        ),
+      );
+
+      expect(controller.state.canConfirm, isTrue, reason: 'nothing requires a phone yet');
+      final success = await controller.confirmBooking();
+
+      expect(success, isFalse);
+      expect(controller.state.requiresPhone, isTrue);
+      // The slot the customer already picked must survive — only a 409
+      // conflict clears it.
+      expect(controller.state.selectedSlot, isNotNull);
+      expect(controller.state.canConfirm, isFalse, reason: 'requiresPhone but no phone entered yet');
+
+      controller.setPhone('9123456780');
+      expect(controller.state.canConfirm, isTrue, reason: 'phone now entered');
+    });
+
+    test('confirmBooking sends the entered phone and succeeds once provided', () async {
+      controller.selectBranch(branch);
+      controller.toggleService(haircut);
+      when(
+        () => repository.availability(
+          branchId: any(named: 'branchId'),
+          date: any(named: 'date'),
+          serviceIds: any(named: 'serviceIds'),
+          staffId: any(named: 'staffId'),
+        ),
+      ).thenAnswer(
+        (_) async => AvailabilityResult.fromJson({
+          'date': '2026-09-01',
+          'duration_minutes': 30,
+          'buffer_minutes': 0,
+          'slots': [
+            {'start_time': '09:00', 'end_time': '09:30', 'staff_ids': ['st_1']},
+          ],
+          'staff': [
+            {'id': 'st_1', 'name': 'Amit'},
+          ],
+        }),
+      );
+      controller.setDate(DateTime(2026, 9, 1));
+      await Future<void>.delayed(Duration.zero);
+      controller.selectSlot(controller.state.availability!.slots.first);
+      controller.setPhone('9123456780');
+
+      final createdBooking = Booking.fromJson({
+        'id': 'bk_1',
+        'branch_id': 'br_1',
+        'booking_date': '2026-09-01',
+        'start_time': '09:00',
+        'end_time': '09:30',
+        'status': 'pending',
+        'subtotal': '300.00',
+        'discount': '0.00',
+        'tax': '0.00',
+        'total': '300.00',
+      });
+      when(
+        () => repository.createBooking(
+          branchId: 'br_1',
+          date: '2026-09-01',
+          startTime: '09:00',
+          items: any(named: 'items'),
+          notes: any(named: 'notes'),
+          phone: '9123456780',
+        ),
+      ).thenAnswer((_) async => createdBooking);
+
+      final success = await controller.confirmBooking();
+
+      expect(success, isTrue);
+      expect(controller.state.createdBooking?.id, 'bk_1');
+      expect(controller.state.requiresPhone, isFalse);
+    });
+  });
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers.dart';
 import '../../data/models/branch.dart';
 import '../../data/models/customer_salon.dart';
+import '../../data/models/salon.dart';
 import '../../data/repositories/salon_repository.dart';
 
 final salonRepositoryProvider = Provider<SalonRepository>((ref) => SalonRepository(ref.watch(apiClientProvider)));
@@ -11,6 +12,17 @@ final salonRepositoryProvider = Provider<SalonRepository>((ref) => SalonReposito
 /// `ref.invalidate(mySalonsProvider)` (e.g. pull-to-refresh).
 final mySalonsProvider = FutureProvider<List<CustomerSalon>>((ref) {
   return ref.watch(salonRepositoryProvider).mySalons();
+});
+
+/// Every active salon the customer can discover — independent of any prior
+/// relationship. This is the Customer Dashboard's "Find a Salon" list.
+final discoverSalonsProvider = FutureProvider<List<Salon>>((ref) {
+  return ref.watch(salonRepositoryProvider).discoverSalons();
+});
+
+/// Active branches for one discovered salon, keyed by salon id.
+final salonBranchesProvider = FutureProvider.family<List<Branch>, String>((ref, salonId) {
+  return ref.watch(salonRepositoryProvider).branchesForSalon(salonId);
 });
 
 /// The branch the customer is currently booking at, set when they pick one

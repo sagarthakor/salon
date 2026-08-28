@@ -52,6 +52,10 @@ Route::prefix('v1')->group(function (): void {
     });
     Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('customer')->group(function (): void {
         Route::get('salons', [CustomerSalonController::class, 'index']);
+        // Public/customer salon directory — cross-tenant by design, no
+        // customer_profiles membership required. See CustomerSalonController.
+        Route::get('discover-salons', [CustomerSalonController::class, 'discover']);
+        Route::get('salons/{salon}/branches', [CustomerSalonController::class, 'branches']);
 
         Route::get('profile', [CustomerProfileController::class, 'show']);
         Route::match(['put', 'patch'], 'profile', [CustomerProfileController::class, 'update']);

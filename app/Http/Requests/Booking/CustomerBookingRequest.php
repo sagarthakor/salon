@@ -28,6 +28,13 @@ class CustomerBookingRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
             'coupon_code' => ['nullable', 'string', 'max:32'],
             'loyalty_points_to_redeem' => ['nullable', 'integer', 'min:1'],
+            // Only actually required when the caller has no customer_profiles
+            // row yet for this tenant — see
+            // CustomerBookingController::resolveOrCreateCustomer(), which
+            // enforces that dynamically (whether it's needed depends on
+            // authenticated-user state, not just this payload).
+            'phone' => ['nullable', 'string', 'max:32', 'regex:/^[0-9+() .-]+$/'],
+            'country_code' => ['nullable', 'string', 'max:6', 'regex:/^\+?[0-9]{1,4}$/'],
         ];
     }
 }

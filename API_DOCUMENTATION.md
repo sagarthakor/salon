@@ -98,7 +98,9 @@ Customer management APIs (owner/super admin for writes and notes/summary; staff 
 Customer self-service (any authenticated user; not gated by `tenant.context` since a customer holds no tenant membership):
 
 - `GET|PUT|PATCH /api/v1/customer/profile` — resolves the caller's own `customer_profiles` row by `user_id`. If the user has profiles in more than one tenant, pass `X-Tenant-Slug` to select one; omit it when there is exactly one.
-- `GET /api/v1/customer/salons` — added in Phase 7 for the mobile app; lists the tenants (salon + active branches) the caller already has a `customer_profiles` relationship with. Not a public salon directory — see `MOBILE_API_INTEGRATION.md`.
+- `GET /api/v1/customer/salons` — added in Phase 7 for the mobile app; lists the tenants (salon + active branches) the caller already has a `customer_profiles` relationship with. Not a public salon directory.
+- `GET /api/v1/customer/discover-salons` — public salon discovery, cross-tenant, no `customer_profiles` relationship required: every `Salon` with `status = active`, same `SalonResource` shape as above. See `CUSTOMER_ARCHITECTURE.md`, "Customer salon discovery and first-time booking".
+- `GET /api/v1/customer/salons/{salon}/branches` — active branches for a salon returned by `discover-salons` above; `{salon}` resolves the tenant entirely server-side, never from a client-supplied tenant id. Same section.
 
 Availability and branch service catalog (`auth:sanctum` only — no `tenant.context`, no `X-Tenant-Slug`; these serve owner/staff and customers alike):
 
@@ -115,8 +117,8 @@ Booking management APIs (owner/super admin and staff both get full operational a
 
 Customer booking self-service (`auth:sanctum` only, own bookings only):
 
-- `GET|POST /customer/bookings`, `GET /customer/bookings/{booking}`, `POST /customer/bookings/{booking}/cancel`, `POST /customer/bookings/{booking}/reschedule`. `POST` accepts the same `branch_id`/`date`/`start_time`/`items[]`/`notes` shape as the owner surface but never accepts `customer_id` — it is resolved from the caller's own profile for that branch's tenant. Self-cancellation is rejected with `409` if the salon's `cancellation_window_minutes` setting is set and the booking starts within that window. `POST` additionally accepts `coupon_code`/`loyalty_points_to_redeem` (Phase 12, both optional) — see `LOYALTY_MEMBERSHIP_COUPON_ARCHITECTURE.md`.
-- `POST /customer/bookings/price-preview` (Phase 12) — same shape as the owner preview above, always priced for the caller's own profile.
+- `GET|POST /customer/bookings`, `GET /customer/bookings/{booking}`, `POST /customer/bookings/{booking}/cancel`, `POST /customer/bookings/{booking}/reschedule`. `POST` accepts the same `branch_id`/`date`/`start_time`/`items[]`/`notes` shape as the owner surface but never accepts `customer_id` — it is resolved from the caller's own profile for that branch's tenant, auto-creating one from the authenticated user's identity if this is their first booking with it (requires `phone` in that case only — see `CUSTOMER_ARCHITECTURE.md`, "Customer salon discovery and first-time booking"). Self-cancellation is rejected with `409` if the salon's `cancellation_window_minutes` setting is set and the booking starts within that window. `POST` additionally accepts `coupon_code`/`loyalty_points_to_redeem` (Phase 12, both optional) — see `LOYALTY_MEMBERSHIP_COUPON_ARCHITECTURE.md`.
+- `POST /customer/bookings/price-preview` (Phase 12) — same shape as the owner preview above, always priced for the caller's own profile; also accepts the same optional `phone` for a first-time-customer profile as `POST /customer/bookings` above.
 
 Owner dashboard (`auth:sanctum` and `tenant.context`; owner/super-admin only — added in Phase 8 for the Flutter owner app):
 

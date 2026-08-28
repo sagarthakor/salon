@@ -23,11 +23,13 @@ class BookingSummaryScreen extends ConsumerStatefulWidget {
 class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
   final _notesController = TextEditingController();
   final _couponController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   @override
   void dispose() {
     _notesController.dispose();
     _couponController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -44,6 +46,20 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
         children: [
           if (flowState.submissionError != null) _ErrorBanner(message: flowState.submissionError!),
           _SummaryCard(flowState: flowState),
+          if (flowState.requiresPhone) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              "It looks like this is your first time booking with this salon — we just need a phone number to set up your customer profile.",
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Phone number'),
+              onChanged: controller.setPhone,
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           TextField(
             controller: _notesController,

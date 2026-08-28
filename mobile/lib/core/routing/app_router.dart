@@ -16,6 +16,7 @@ import '../../features/booking/presentation/screens/booking_schedule_screen.dart
 import '../../features/booking/presentation/screens/booking_service_selection_screen.dart';
 import '../../features/booking/presentation/screens/booking_summary_screen.dart';
 import '../../features/booking/presentation/screens/reschedule_screen.dart';
+import '../../features/booking/presentation/screens/salon_branch_selection_screen.dart';
 import '../../features/home/presentation/screens/home_shell.dart';
 import '../../features/loyalty/presentation/screens/loyalty_screen.dart';
 import '../../features/membership/presentation/screens/membership_checkout_screen.dart';
@@ -94,6 +95,7 @@ bool _isStaffRoute(String location) => location.startsWith('/staff');
 /// request regardless of what screen the app happens to show.
 bool _isCustomerOnlyRoute(String location) =>
     location == '/home' ||
+    location.startsWith('/salons/') ||
     location.startsWith('/booking/') ||
     location.startsWith('/bookings/') ||
     location == '/profile/edit' ||
@@ -157,6 +159,13 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // --- Customer app (unchanged from Phase 7) ---
       GoRoute(path: '/home', builder: (context, state) => const HomeShell()),
+      GoRoute(
+        path: '/salons/:salonId/branches',
+        builder: (context, state) => SalonBranchSelectionScreen(
+          salonId: state.pathParameters['salonId']!,
+          salonName: state.uri.queryParameters['name'],
+        ),
+      ),
       GoRoute(path: '/booking/audience', builder: (context, state) => const AudienceSelectionScreen()),
       GoRoute(path: '/booking/services', builder: (context, state) => const BookingServiceSelectionScreen()),
       GoRoute(path: '/booking/schedule', builder: (context, state) => const BookingScheduleScreen()),

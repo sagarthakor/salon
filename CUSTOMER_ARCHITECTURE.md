@@ -23,7 +23,7 @@ Because a `User` may hold `customer_profiles` rows in more than one tenant (same
 
 `GET /api/v1/auth/me` is unchanged and still returns the platform identity; it is not duplicated by the customer profile endpoints, which return the tenant-scoped operational profile (phone, address, notes-free) instead.
 
-Self-service profile creation (a customer creating their own `customer_profiles` row for a new tenant without staff involvement) is **not** implemented in Phase 5 — it naturally belongs to the future booking flow (a customer can only meaningfully "join" a salon in the context of booking with it) and is called out as a Phase 6 dependency below.
+Self-service profile creation (a customer creating their own `customer_profiles` row for a new tenant without staff involvement) was **not** implemented in Phase 5 — it belonged to the future booking flow (a customer can only meaningfully "join" a salon in the context of booking with it). It is now implemented — see "Customer salon discovery and first-time booking" below.
 
 ## Branch relationship
 
@@ -58,3 +58,24 @@ Customers reuse `BusinessStatus` (`active`/`inactive`), consistent with Salon/Br
 ## Future booking dependency
 
 The schema is shaped so a future `Booking` can reference `customer_id` + `branch_id` + `staff_id` independently: `Tenant → Customer` (this phase) and `Branch → Booking` (Phase 6) are separate edges, not `Customer → Branch`. The summary endpoint's placeholder fields map directly to future booking aggregates once that table exists.
+
+## Customer salon discovery and first-time booking
+
+A real-device QA finding showed the original `GET /customer/salons` (`CustomerSalonController::index()`) is membership-only by design — it lists only tenants where a `customer_profiles` row already links the authenticated user, created by staff via `CustomerController::store()` (Phase 5, above). A brand-new customer who has never been registered by any salon therefore saw an empty list, and even a customer staff *had* registered still saw nothing if that registration was never linked to their `user_id` (staff-side "add a customer" never collects/sets `user_id` — it's phone/name/email only).
+
+The product requirement is that discovery and registration are independent: a customer must be able to find and book a salon without a staff member registering them first.
+
+**Discovery is deliberately cross-tenant.** Two new endpoints, both under the existing tenant-free `/api/v1/customer` prefix (`auth:sanctum` only, no `tenant.context`, no `X-Tenant-Slug` requirement):
+
+- `GET /customer/discover-salons` — every `Salon` with `status = ACTIVE`, across every tenant, via `Salon::withoutGlobalScope('tenant')`. No membership filter. Returns the same `SalonResource` shape `index()` already used for customers, which was already customer-safe (no owner/billing/staff fields) — the leftover *directory* gap was the query, not the resource.
+- `GET /customer/salons/{salon}/branches` — resolves the salon (and therefore its tenant) entirely server-side from the `{salon}` id, requires `status = ACTIVE` on both the salon and its branches, and never accepts a tenant identifier from the client. `salons.tenant_id` and `salons.slug` are both globally unique (see `create_salon_management_tables` migration), so a salon id can never resolve to more than one tenant.
+
+Once a branch is picked, everything downstream is unchanged and already tenant-safe: `CustomerServiceController`/`AvailabilityController` resolve their tenant from the `{branch}` id the same way, with no customer-profile requirement either.
+
+**First-time booking auto-creates the profile.** `CustomerBookingController::store()`/`pricePreview()` used to 404 ("Ask the salon to register you first") when no `customer_profiles` row existed yet for the resolved tenant — the last real gap, since a customer who discovered a salon this way still couldn't complete a booking. Both now call a shared `resolveOrCreateCustomer()`:
+
+1. Reuse the existing profile if `customer_profiles.user_id = auth()->id()` already has one for this tenant (unchanged existing-customer path).
+2. Otherwise, require a `phone` in the booking/price-preview request and create the profile from the authenticated `User`'s own identity (`user_id`, `name`, `email`) plus that phone — never from a client-supplied `customer_id` or any other user's data.
+3. The table's two unique constraints (`tenant_id`+`user_id`, `tenant_id`+`normalized_phone`) are handled explicitly: a race on the same user re-fetches and reuses the row the concurrent request created (no duplicate, no failed booking); a genuine conflict against a *different* existing phone (e.g. a walk-in profile staff already created for someone else) is surfaced as a normal 409, never a raw `QueryException`.
+
+This does not change `CustomerController::store()` (owner/staff manual registration) at all — it remains the only path for walk-in/offline customers with no app account, and is unaffected by whether a given app customer ever discovers/books that salon themselves.

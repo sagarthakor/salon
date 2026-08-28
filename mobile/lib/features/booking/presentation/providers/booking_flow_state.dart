@@ -32,6 +32,8 @@ class BookingFlowState {
     this.isSubmitting = false,
     this.submissionError,
     this.createdBooking,
+    this.phone = '',
+    this.requiresPhone = false,
   });
 
   final Branch? branch;
@@ -53,13 +55,28 @@ class BookingFlowState {
   final String? submissionError;
   final Booking? createdBooking;
 
+  /// Only ever collected the first time a customer books with a salon — see
+  /// [requiresPhone] and BookingFlowController.
+  final String phone;
+
+  /// Set once the backend reports (via a `phone` field error) that this is
+  /// the customer's first booking with the selected salon and it needs a
+  /// phone number to create their profile — the summary screen then shows a
+  /// phone field before retrying.
+  final bool requiresPhone;
+
   num get estimatedTotal => selectedServices.fold<num>(0, (sum, s) => sum + s.price);
 
   int get estimatedDurationMinutes => selectedServices.fold<int>(0, (sum, s) => sum + s.durationMinutes);
 
   bool get canProceedPastServices => selectedServices.isNotEmpty;
 
-  bool get canConfirm => branch != null && selectedServices.isNotEmpty && selectedSlot != null && !isSubmitting;
+  bool get canConfirm =>
+      branch != null &&
+      selectedServices.isNotEmpty &&
+      selectedSlot != null &&
+      !isSubmitting &&
+      (!requiresPhone || phone.trim().isNotEmpty);
 
   BookingFlowState copyWith({
     Branch? branch,
@@ -88,6 +105,8 @@ class BookingFlowState {
     String? submissionError,
     bool clearSubmissionError = false,
     Booking? createdBooking,
+    String? phone,
+    bool? requiresPhone,
   }) {
     return BookingFlowState(
       branch: branch ?? this.branch,
@@ -108,6 +127,8 @@ class BookingFlowState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       submissionError: clearSubmissionError ? null : (submissionError ?? this.submissionError),
       createdBooking: createdBooking ?? this.createdBooking,
+      phone: phone ?? this.phone,
+      requiresPhone: requiresPhone ?? this.requiresPhone,
     );
   }
 }

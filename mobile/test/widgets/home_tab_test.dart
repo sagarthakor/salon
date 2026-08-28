@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:salon_customer/core/providers.dart';
 import 'package:salon_customer/features/auth/data/models/user.dart';
 import 'package:salon_customer/features/auth/presentation/providers/auth_provider.dart';
 import 'package:salon_customer/features/booking/presentation/providers/booking_providers.dart';
 import 'package:salon_customer/features/home/presentation/screens/home_tab.dart';
-import 'package:salon_customer/features/salon/data/models/customer_salon.dart';
+import 'package:salon_customer/features/salon/data/models/salon.dart';
 import 'package:salon_customer/features/salon/presentation/providers/salon_providers.dart';
 import 'package:url_launcher_platform_interface/link.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
@@ -30,10 +31,12 @@ class _FakeUrlLauncher extends UrlLauncherPlatform {
   Future<bool> canLaunch(String url) async => true;
 }
 
-/// The salon's official Instagram profile link, shown on the customer's
-/// salon card on the Home tab — deliberately separate from a service's
-/// Instagram post/reel link (see `booking_service_selection_screen_test.dart`,
-/// unchanged by this feature).
+/// Real-device QA bug fix: a brand-new customer with zero salon
+/// relationships previously saw an empty "You're not registered as a
+/// customer at any salon yet" list. The Home tab now shows every
+/// customer-discoverable (active) salon, independent of any prior
+/// relationship — see CUSTOMER_ARCHITECTURE.md, "Customer discovery and
+/// first-time booking".
 void main() {
   late MockAuthRepository authRepository;
   late MockSalonRepository salonRepository;
@@ -51,6 +54,42 @@ void main() {
     );
   }
 
+  Widget buildRoutedApp() {
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(path: '/home', builder: (context, state) => const HomeTab()),
+        GoRoute(
+          path: '/salons/:salonId/branches',
+          builder: (context, state) => Scaffold(
+            body: Text('Branches for ${state.uri.queryParameters['name'] ?? state.pathParameters['salonId']}'),
+          ),
+        ),
+      ],
+    );
+    return ProviderScope(
+      overrides: [
+        secureStorageProvider.overrideWithValue(FakeSecureStorage()),
+        authRepositoryProvider.overrideWithValue(authRepository),
+        salonRepositoryProvider.overrideWithValue(salonRepository),
+        bookingRepositoryProvider.overrideWithValue(bookingRepository),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    );
+  }
+
+  Salon salonFixture({String id = 'sal_1', String name = 'Prime Hair Studio', String? instagramUrl}) {
+    return Salon.fromJson({
+      'id': id,
+      'name': name,
+      'slug': name.toLowerCase().replaceAll(' ', '-'),
+      'gender_type': 'unisex',
+      'instagram_url': instagramUrl,
+      'address': null,
+      'status': 'active',
+    });
+  }
+
   setUp(() {
     authRepository = MockAuthRepository();
     salonRepository = MockSalonRepository();
@@ -62,22 +101,8 @@ void main() {
   });
 
   testWidgets('shows "View on Instagram" for a salon with an Instagram URL', (tester) async {
-    when(() => salonRepository.mySalons()).thenAnswer(
-      (_) async => [
-        CustomerSalon.fromJson({
-          'tenant_slug': 'prime-hair-studio',
-          'salon': {
-            'id': 'sal_1',
-            'name': 'Prime Hair Studio',
-            'slug': 'prime-hair-studio',
-            'gender_type': 'unisex',
-            'instagram_url': 'https://www.instagram.com/primehairstudio/',
-            'address': null,
-            'status': 'active',
-          },
-          'branches': <dynamic>[],
-        }),
-      ],
+    when(() => salonRepository.discoverSalons()).thenAnswer(
+      (_) async => [salonFixture(instagramUrl: 'https://www.instagram.com/primehairstudio/')],
     );
 
     await tester.pumpWidget(buildApp());
@@ -88,22 +113,7 @@ void main() {
   });
 
   testWidgets('hides the Instagram button when the salon has no Instagram URL', (tester) async {
-    when(() => salonRepository.mySalons()).thenAnswer(
-      (_) async => [
-        CustomerSalon.fromJson({
-          'tenant_slug': 'prime-hair-studio',
-          'salon': {
-            'id': 'sal_1',
-            'name': 'Prime Hair Studio',
-            'slug': 'prime-hair-studio',
-            'gender_type': 'unisex',
-            'address': null,
-            'status': 'active',
-          },
-          'branches': <dynamic>[],
-        }),
-      ],
-    );
+    when(() => salonRepository.discoverSalons()).thenAnswer((_) async => [salonFixture()]);
 
     await tester.pumpWidget(buildApp());
     await tester.pump();
@@ -119,22 +129,8 @@ void main() {
     UrlLauncherPlatform.instance = fakeLauncher;
     addTearDown(() => UrlLauncherPlatform.instance = originalLauncher);
 
-    when(() => salonRepository.mySalons()).thenAnswer(
-      (_) async => [
-        CustomerSalon.fromJson({
-          'tenant_slug': 'prime-hair-studio',
-          'salon': {
-            'id': 'sal_1',
-            'name': 'Prime Hair Studio',
-            'slug': 'prime-hair-studio',
-            'gender_type': 'unisex',
-            'instagram_url': 'https://www.instagram.com/primehairstudio/',
-            'address': null,
-            'status': 'active',
-          },
-          'branches': <dynamic>[],
-        }),
-      ],
+    when(() => salonRepository.discoverSalons()).thenAnswer(
+      (_) async => [salonFixture(instagramUrl: 'https://www.instagram.com/primehairstudio/')],
     );
 
     await tester.pumpWidget(buildApp());
@@ -145,5 +141,56 @@ void main() {
     await tester.pump();
 
     expect(fakeLauncher.lastLaunchedUrl, 'https://www.instagram.com/primehairstudio/');
+  });
+
+  group('real-device bug fix: customer salon discovery', () {
+    testWidgets('a brand-new customer with zero salon memberships still sees active salons', (tester) async {
+      when(() => salonRepository.discoverSalons()).thenAnswer((_) async => [salonFixture()]);
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Prime Hair Studio'), findsOneWidget);
+      expect(find.textContaining('not registered as a customer'), findsNothing);
+    });
+
+    testWidgets('multiple discovered salons all render', (tester) async {
+      when(() => salonRepository.discoverSalons()).thenAnswer(
+        (_) async => [salonFixture(id: 'sal_1', name: 'Prime Hair Studio'), salonFixture(id: 'sal_2', name: 'Sunny Unisex Salon')],
+      );
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Prime Hair Studio'), findsOneWidget);
+      expect(find.text('Sunny Unisex Salon'), findsOneWidget);
+    });
+
+    testWidgets('an empty salon list shows a friendly empty state, never the old "not registered" message', (tester) async {
+      when(() => salonRepository.discoverSalons()).thenAnswer((_) async => []);
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('No salons available near you yet.'), findsOneWidget);
+      expect(find.textContaining('not registered as a customer'), findsNothing);
+      expect(find.textContaining('Ask your salon to add you'), findsNothing);
+    });
+
+    testWidgets('tapping a salon opens branch selection for that salon', (tester) async {
+      when(() => salonRepository.discoverSalons()).thenAnswer((_) async => [salonFixture()]);
+
+      await tester.pumpWidget(buildRoutedApp());
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.text('Prime Hair Studio'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Branches for Prime Hair Studio'), findsOneWidget);
+    });
   });
 }
