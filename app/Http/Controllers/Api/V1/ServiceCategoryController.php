@@ -8,15 +8,22 @@ use App\Http\Resources\ServiceCategoryResource;
 use App\Models\ServiceCategory;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ServiceCategoryController extends TenantManagementController
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $this->managedTenant();
+        $query = ServiceCategory::query();
+        foreach (['branch_id' => 'branch_id', 'audience' => 'audience', 'status' => 'status'] as $input => $column) {
+            if ($request->filled($input)) {
+                $query->where($column, $request->string($input));
+            }
+        }
 
-        return ApiResponse::success(ServiceCategoryResource::collection(ServiceCategory::query()->orderBy('sort_order')->orderBy('name')->paginate(20)), 'Service categories retrieved.');
+        return ApiResponse::success(ServiceCategoryResource::collection($query->orderBy('sort_order')->orderBy('name')->paginate(min($request->integer('per_page', 20), 100))), 'Service categories retrieved.');
     }
 
     public function store(ServiceCategoryRequest $request): JsonResponse

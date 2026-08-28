@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\BusinessStatus;
+use App\Enums\ServiceAudience;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ServiceCategoryResource;
 use App\Http\Resources\ServiceResource;
@@ -12,6 +13,7 @@ use App\Models\ServiceCategory;
 use App\Support\ApiResponse;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Read-only service/category catalog for a branch, reachable without tenant
@@ -22,16 +24,31 @@ use Illuminate\Http\JsonResponse;
  */
 class CustomerServiceController extends Controller
 {
-    public function index(string $branch): JsonResponse
+    /**
+     * `audience` (optional) is the customer app's "Men / Women / Unisex /
+     * Kids" entry point (see MASTER_CATALOG_ARCHITECTURE.md) — an exact
+     * match only. Selecting Unisex never also pulls in Male/Female
+     * services, and vice versa: a service belongs to exactly one audience,
+     * never silently duplicated across several.
+     */
+    public function index(string $branch, Request $request): JsonResponse
     {
         $branchModel = Branch::withoutGlobalScope('tenant')->findOrFail($branch);
+        $audience = $request->filled('audience') ? ServiceAudience::tryFrom($request->string('audience')->toString()) : null;
+        if ($request->filled('audience') && $audience === null) {
+            return ApiResponse::error('Invalid audience.', ['audience' => ['The selected audience is invalid.']], 422);
+        }
         $context = app(TenantContext::class);
         $context->set($branchModel->tenant);
         try {
-            $categories = ServiceCategory::query()->where('branch_id', $branchModel->id)->where('status', BusinessStatus::ACTIVE)
-                ->orderBy('sort_order')->orderBy('name')->get();
-            $services = Service::query()->where('branch_id', $branchModel->id)->where('status', BusinessStatus::ACTIVE)
-                ->with('category')->orderBy('sort_order')->orderBy('name')->get();
+            $categoriesQuery = ServiceCategory::query()->where('branch_id', $branchModel->id)->where('status', BusinessStatus::ACTIVE);
+            $servicesQuery = Service::query()->where('branch_id', $branchModel->id)->where('status', BusinessStatus::ACTIVE);
+            if ($audience !== null) {
+                $categoriesQuery->where('audience', $audience);
+                $servicesQuery->where('audience', $audience);
+            }
+            $categories = $categoriesQuery->orderBy('sort_order')->orderBy('name')->get();
+            $services = $servicesQuery->with('category')->orderBy('sort_order')->orderBy('name')->get();
         } finally {
             $context->clear();
         }

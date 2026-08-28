@@ -24,6 +24,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(MasterCatalogSeeder::class);
+
         User::query()->firstOrCreate(['email' => 'admin@example.test'], ['name' => 'Local Super Admin', 'password' => 'ChangeMe123!', 'role' => UserRole::SUPER_ADMIN]);
         $owner = User::query()->firstOrCreate(['email' => 'owner@example.test'], ['name' => 'Demo Salon Owner', 'password' => 'ChangeMe123!', 'role' => UserRole::SALON_OWNER]);
         $tenant = Tenant::query()->firstOrCreate(['slug' => 'demo-salon'], ['name' => 'Demo Salon', 'status' => 'active']);

@@ -11,6 +11,7 @@ class SalonService {
     required this.slug,
     this.description,
     required this.gender,
+    this.audience,
     required this.price,
     required this.durationMinutes,
     this.imageUrl,
@@ -29,6 +30,7 @@ class SalonService {
     slug: json['slug'] as String,
     description: json['description'] as String?,
     gender: json['gender'] as String,
+    audience: json['audience'] as String?,
     price: num.parse(json['price'].toString()),
     durationMinutes: json['duration_minutes'] as int,
     imageUrl: json['image_url'] as String?,
@@ -44,6 +46,12 @@ class SalonService {
   final String slug;
   final String? description;
   final String gender;
+
+  /// `male`/`female`/`unisex`/`kids` — the master-catalog segmentation the
+  /// customer dashboard's "Men / Women / Unisex / Kids" entry point filters
+  /// by. `null` for a service that predates (or was created outside) the
+  /// master catalog feature. See MASTER_CATALOG_ARCHITECTURE.md.
+  final String? audience;
   final num price;
   final int durationMinutes;
   final String? imageUrl;

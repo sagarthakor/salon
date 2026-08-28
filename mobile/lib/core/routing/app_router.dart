@@ -9,6 +9,7 @@ import '../../features/auth/presentation/screens/register_choice_screen.dart';
 import '../../features/auth/presentation/screens/register_owner_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
+import '../../features/booking/presentation/screens/audience_selection_screen.dart';
 import '../../features/booking/presentation/screens/booking_confirmation_screen.dart';
 import '../../features/booking/presentation/screens/booking_details_screen.dart';
 import '../../features/booking/presentation/screens/booking_schedule_screen.dart';
@@ -156,6 +157,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // --- Customer app (unchanged from Phase 7) ---
       GoRoute(path: '/home', builder: (context, state) => const HomeShell()),
+      GoRoute(path: '/booking/audience', builder: (context, state) => const AudienceSelectionScreen()),
       GoRoute(path: '/booking/services', builder: (context, state) => const BookingServiceSelectionScreen()),
       GoRoute(path: '/booking/schedule', builder: (context, state) => const BookingScheduleScreen()),
       GoRoute(path: '/booking/summary', builder: (context, state) => const BookingSummaryScreen()),

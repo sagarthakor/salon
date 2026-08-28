@@ -65,12 +65,13 @@ void main() {
     ],
   });
 
-  Widget buildApp(MockServiceRepository serviceRepository) {
+  Widget buildApp(MockServiceRepository serviceRepository, {String? audience}) {
     return ProviderScope(
       overrides: [
         secureStorageProvider.overrideWithValue(FakeSecureStorage()),
         serviceRepositoryProvider.overrideWithValue(serviceRepository),
         selectedBranchProvider.overrideWith((ref) => branch),
+        selectedAudienceProvider.overrideWith((ref) => audience),
       ],
       child: const MaterialApp(home: BookingServiceSelectionScreen()),
     );
@@ -243,5 +244,52 @@ void main() {
     await tester.pump();
 
     expect(fakeLauncher.lastLaunchedUrl, 'https://www.instagram.com/reel/Cabc123/');
+  });
+
+  testWidgets('requests the catalog filtered to the selected audience', (tester) async {
+    final serviceRepository = MockServiceRepository();
+    when(() => serviceRepository.forBranch('br_1', audience: 'male')).thenAnswer(
+      (_) async => BranchServices.fromJson({
+        'categories': [
+          {'id': 'cat_1', 'branch_id': 'br_1', 'name': 'Beard', 'slug': 'beard', 'status': 'active', 'sort_order': 0},
+        ],
+        'services': [
+          {
+            'id': 'sv_2',
+            'branch_id': 'br_1',
+            'category': {'id': 'cat_1', 'branch_id': 'br_1', 'name': 'Beard', 'slug': 'beard', 'status': 'active', 'sort_order': 0},
+            'name': 'Beard Trim',
+            'slug': 'beard-trim',
+            'gender': 'male',
+            'audience': 'male',
+            'price': '150.00',
+            'duration_minutes': 20,
+            'status': 'active',
+            'sort_order': 0,
+          },
+        ],
+      }),
+    );
+
+    await tester.pumpWidget(buildApp(serviceRepository, audience: 'male'));
+    await tester.pump();
+    await tester.pump();
+
+    verify(() => serviceRepository.forBranch('br_1', audience: 'male')).called(1);
+    expect(find.text('Beard Trim'), findsOneWidget);
+    expect(find.text('Main Branch · Men'), findsOneWidget);
+  });
+
+  testWidgets('shows a friendly, audience-specific empty state when nothing matches', (tester) async {
+    final serviceRepository = MockServiceRepository();
+    when(() => serviceRepository.forBranch('br_1', audience: 'kids')).thenAnswer(
+      (_) async => BranchServices.fromJson({'categories': <dynamic>[], 'services': <dynamic>[]}),
+    );
+
+    await tester.pumpWidget(buildApp(serviceRepository, audience: 'kids'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.textContaining('No Kids services here yet'), findsOneWidget);
   });
 }

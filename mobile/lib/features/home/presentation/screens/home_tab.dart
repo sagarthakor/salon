@@ -139,7 +139,10 @@ class _BranchTile extends ConsumerWidget {
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         ref.read(selectedBranchProvider.notifier).state = branch;
-        context.push('/booking/services');
+        // "What service are you looking for?" — Men/Women/Unisex/Kids —
+        // comes before the service catalog itself. See
+        // MASTER_CATALOG_ARCHITECTURE.md.
+        context.push('/booking/audience');
       },
     );
   }

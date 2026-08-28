@@ -19,7 +19,7 @@ class ServiceController extends TenantManagementController
     {
         $this->managedTenant();
         $query = Service::query()->with('category');
-        foreach (['branch_id' => 'branch_id', 'category_id' => 'category_id', 'gender' => 'gender', 'status' => 'status'] as $input => $column) {
+        foreach (['branch_id' => 'branch_id', 'category_id' => 'category_id', 'gender' => 'gender', 'audience' => 'audience', 'status' => 'status'] as $input => $column) {
             if ($request->filled($input)) {
                 $query->where($column, $request->string($input));
             }

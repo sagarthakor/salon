@@ -4,6 +4,7 @@ namespace App\Http\Requests\Service;
 
 use App\Enums\BusinessStatus;
 use App\Enums\GenderType;
+use App\Enums\ServiceAudience;
 use App\Models\Branch;
 use App\Models\Service;
 use App\Models\ServiceCategory;
@@ -40,7 +41,7 @@ class ServiceRequest extends FormRequest
         $branch = Branch::query()->find($this->input('branch_id'));
         $current = Service::query()->find($this->route('service'));
 
-        return ['branch_id' => ['required', Rule::exists('branches', 'id')->where('tenant_id', app(TenantContext::class)->id())], 'category_id' => ['required', Rule::exists('service_categories', 'id')->where('tenant_id', app(TenantContext::class)->id())], 'name' => ['required', 'string', 'max:150'], 'slug' => ['nullable', 'string', 'max:150', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('services', 'slug')->where('branch_id', $branch?->id)->ignore($current?->id)], 'description' => ['nullable', 'string', 'max:5000'], 'gender' => ['required', Rule::enum(GenderType::class)], 'price' => ['required', 'decimal:0,2', 'min:0'], 'duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'], 'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:min_width=100,min_height=100,max_width=4000,max_height=4000'], 'instagram_url' => ['nullable', 'string', 'max:500', function (string $attribute, mixed $value, Closure $fail): void {
+        return ['branch_id' => ['required', Rule::exists('branches', 'id')->where('tenant_id', app(TenantContext::class)->id())], 'category_id' => ['required', Rule::exists('service_categories', 'id')->where('tenant_id', app(TenantContext::class)->id())], 'name' => ['required', 'string', 'max:150'], 'slug' => ['nullable', 'string', 'max:150', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('services', 'slug')->where('branch_id', $branch?->id)->ignore($current?->id)], 'description' => ['nullable', 'string', 'max:5000'], 'gender' => ['required', Rule::enum(GenderType::class)], 'audience' => ['nullable', Rule::enum(ServiceAudience::class)], 'price' => ['required', 'decimal:0,2', 'min:0'], 'duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'], 'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:min_width=100,min_height=100,max_width=4000,max_height=4000'], 'instagram_url' => ['nullable', 'string', 'max:500', function (string $attribute, mixed $value, Closure $fail): void {
             if (is_string($value) && ! InstagramUrl::isValid($value)) {
                 $fail('The Instagram URL must be a valid instagram.com post, reel, or video link.');
             }

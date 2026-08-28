@@ -16,3 +16,9 @@ final mySalonsProvider = FutureProvider<List<CustomerSalon>>((ref) {
 /// The branch the customer is currently booking at, set when they pick one
 /// from a salon's branch list and read by every screen in the booking flow.
 final selectedBranchProvider = StateProvider<Branch?>((ref) => null);
+
+/// The audience segment (`male`/`female`/`unisex`/`kids`) the customer chose
+/// on the audience-selection step, right after picking a branch — the
+/// customer dashboard's "Men / Women / Unisex / Kids" entry point. See
+/// MASTER_CATALOG_ARCHITECTURE.md.
+final selectedAudienceProvider = StateProvider<String?>((ref) => null);

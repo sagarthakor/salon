@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BusinessStatus;
+use App\Enums\ServiceAudience;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -14,11 +15,11 @@ class ServiceCategory extends Model
 {
     use BelongsToTenant, HasUlids, SoftDeletes;
 
-    protected $fillable = ['branch_id', 'name', 'slug', 'description', 'image', 'status', 'sort_order'];
+    protected $fillable = ['branch_id', 'audience', 'name', 'slug', 'description', 'image', 'status', 'sort_order'];
 
     protected function casts(): array
     {
-        return ['status' => BusinessStatus::class];
+        return ['status' => BusinessStatus::class, 'audience' => ServiceAudience::class];
     }
 
     public function branch(): BelongsTo

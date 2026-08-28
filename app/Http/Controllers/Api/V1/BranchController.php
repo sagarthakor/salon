@@ -6,6 +6,7 @@ use App\Enums\BusinessStatus;
 use App\Http\Requests\Salon\BranchRequest;
 use App\Http\Resources\BranchResource;
 use App\Models\Branch;
+use App\Services\Catalog\CatalogProvisioningService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -19,7 +20,7 @@ class BranchController extends TenantManagementController
         return ApiResponse::success(BranchResource::collection(Branch::query()->orderBy('name')->get()), 'Branches retrieved.');
     }
 
-    public function store(BranchRequest $request): JsonResponse
+    public function store(BranchRequest $request, CatalogProvisioningService $provisioning): JsonResponse
     {
         $this->managedTenant();
         $data = $request->validated();
@@ -29,7 +30,12 @@ class BranchController extends TenantManagementController
         $data['slug'] ??= Str::slug($data['name']);
         $data['status'] ??= BusinessStatus::ACTIVE;
 
-        return ApiResponse::success(new BranchResource(Branch::query()->create($data)), 'Branch created.', 201);
+        $branch = Branch::query()->create($data);
+        // A no-op for every branch after a tenant's first — see
+        // CatalogProvisioningService's own idempotency guard.
+        $provisioning->provisionForBranch($branch);
+
+        return ApiResponse::success(new BranchResource($branch), 'Branch created.', 201);
     }
 
     public function show(string $branch): JsonResponse

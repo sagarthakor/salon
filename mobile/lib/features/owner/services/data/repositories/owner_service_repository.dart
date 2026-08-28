@@ -56,7 +56,14 @@ class OwnerServiceRepository {
 
   Future<void> deleteCategory(String id) => _client.delete<dynamic>('/service-categories/$id');
 
-  Future<List<SalonService>> services({String? branchId, String? categoryId, String? status, int page = 1, int perPage = 20}) async {
+  Future<List<SalonService>> services({
+    String? branchId,
+    String? categoryId,
+    String? audience,
+    String? status,
+    int page = 1,
+    int perPage = 20,
+  }) async {
     final data = await _client.get<List<dynamic>>(
       '/services',
       queryParameters: {
@@ -64,6 +71,7 @@ class OwnerServiceRepository {
         'per_page': perPage,
         'branch_id': ?branchId,
         'category_id': ?categoryId,
+        'audience': ?audience,
         'status': ?status,
       },
     );

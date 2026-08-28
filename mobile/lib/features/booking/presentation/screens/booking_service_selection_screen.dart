@@ -6,6 +6,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/state_views.dart';
 import '../../../salon/presentation/providers/salon_providers.dart';
 import '../../../services/data/models/salon_service.dart';
+import '../../../services/data/models/service_audience.dart';
 import '../../../services/data/models/service_category.dart';
 import '../../../services/presentation/providers/service_providers.dart';
 import '../../../services/presentation/service_instagram_launcher.dart';
@@ -45,22 +46,28 @@ class _BookingServiceSelectionScreenState extends ConsumerState<BookingServiceSe
       );
     }
 
-    final servicesAsync = ref.watch(branchServicesProvider(branch.id));
+    final audience = ref.watch(selectedAudienceProvider);
+    final providerKey = (branchId: branch.id, audience: audience);
+    final servicesAsync = ref.watch(branchServicesProvider(providerKey));
     final flowState = ref.watch(bookingFlowControllerProvider);
+    final matchingAudiences = ServiceAudience.values.where((a) => a.apiValue == audience);
+    final audienceLabel = matchingAudiences.isEmpty ? null : matchingAudiences.first.label;
 
     return Scaffold(
-      appBar: AppBar(title: Text(branch.name)),
+      appBar: AppBar(title: Text(audienceLabel == null ? branch.name : '${branch.name} · $audienceLabel')),
       body: servicesAsync.when(
         loading: () => const LoadingView(),
         error: (error, _) => ErrorView(
           message: 'Could not load services for this branch.',
-          onRetry: () => ref.invalidate(branchServicesProvider(branch.id)),
+          onRetry: () => ref.invalidate(branchServicesProvider(providerKey)),
         ),
         data: (branchServices) {
           if (branchServices.services.isEmpty) {
-            return const EmptyView(
+            return EmptyView(
               icon: Icons.content_cut,
-              message: 'This branch has no bookable services yet.',
+              message: audienceLabel == null
+                  ? 'This branch has no bookable services yet.'
+                  : 'No $audienceLabel services here yet. Please check back soon or choose another option.',
             );
           }
           return ListView(

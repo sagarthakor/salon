@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BusinessStatus;
 use App\Enums\GenderType;
+use App\Enums\ServiceAudience;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -16,11 +17,11 @@ class Service extends Model
 {
     use BelongsToTenant, HasUlids, SoftDeletes;
 
-    protected $fillable = ['branch_id', 'category_id', 'name', 'slug', 'description', 'gender', 'price', 'duration_minutes', 'image', 'instagram_url', 'status', 'sort_order'];
+    protected $fillable = ['branch_id', 'category_id', 'name', 'slug', 'description', 'gender', 'audience', 'price', 'duration_minutes', 'image', 'instagram_url', 'master_service_id', 'status', 'sort_order'];
 
     protected function casts(): array
     {
-        return ['gender' => GenderType::class, 'status' => BusinessStatus::class, 'price' => 'decimal:2'];
+        return ['gender' => GenderType::class, 'audience' => ServiceAudience::class, 'status' => BusinessStatus::class, 'price' => 'decimal:2'];
     }
 
     /**
@@ -46,6 +47,16 @@ class Service extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(ServiceCategory::class, 'category_id');
+    }
+
+    /**
+     * Purely provenance/idempotency tracking (see
+     * CatalogProvisioningService) — never read by pricing, availability, or
+     * media logic, which all use this row's own columns exclusively.
+     */
+    public function masterService(): BelongsTo
+    {
+        return $this->belongsTo(MasterService::class);
     }
 
     public function staff(): BelongsToMany
