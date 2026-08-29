@@ -118,5 +118,24 @@ void main() {
       expect(find.text('The server ran into a problem. Please try again shortly.'), findsOneWidget);
       expect(find.text('Try again'), findsOneWidget);
     });
+
+    // The actual root cause found on a real device: a brand-new salon has
+    // zero `salon_settings` rows, and the backend used to return an empty
+    // JSON array (`[]`) instead of an object (`{}`) for that case — Dart's
+    // `body['data'] as Map<String, dynamic>` cast then threw a raw
+    // `TypeError`, never an `ApiException`, landing exactly here. Fixed
+    // server-side (SalonSettingsResource now always returns full default
+    // values), but this fallback is the last line of defense for any other
+    // non-ApiException failure.
+    testWidgets('shows a friendly message, never a raw exception, for a non-ApiException failure', (tester) async {
+      when(() => salonRepository.settings()).thenThrow(TypeError());
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Booking settings could not be loaded. Please try again.'), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+    });
   });
 }

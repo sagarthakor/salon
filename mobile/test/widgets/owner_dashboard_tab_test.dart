@@ -91,7 +91,10 @@ void main() {
         date: '2026-08-23',
         bookingCounts: {'total': 0},
         revenueToday: 0,
-        activeStaff: 0,
+        // Non-zero so the (unrelated) staff-setup banner doesn't push this
+        // assertion below the test viewport's fold — see the dedicated
+        // "real-device bug fix: staff setup" group below for that banner.
+        activeStaff: 3,
         staffOnLeaveToday: 0,
         totalCustomers: 0,
         newCustomersThisMonth: 0,
@@ -158,5 +161,60 @@ void main() {
     await tester.pump();
 
     expect(find.text('Set up your salon profile'), findsNothing);
+  });
+
+  group('real-device bug fix: staff setup (availability requires a staff member)', () {
+    // AvailabilityService::eligibleStaffQuery() requires at least one active
+    // staff member assigned to a branch and a service before any booking
+    // slot can ever be generated — a salon with a Salon, Branch, Services,
+    // and working hours but zero staff is otherwise silently unbookable
+    // with no indication why. `staff.active` already exists on the
+    // dashboard summary; this banner is the minimal, no-fake-data fix —
+    // point the owner at Staff setup, never fabricate a placeholder staff
+    // member. See BOOKING_ENGINE.md, "Staff assignment is required for
+    // availability".
+    DashboardSummary summaryWith({required int activeStaff}) => DashboardSummary(
+      date: '2026-08-23',
+      bookingCounts: const {'total': 0},
+      revenueToday: 0,
+      activeStaff: activeStaff,
+      staffOnLeaveToday: 0,
+      totalCustomers: 0,
+      newCustomersThisMonth: 0,
+    );
+
+    testWidgets('shows "Add a staff member" when the salon exists but has zero active staff', (tester) async {
+      when(() => dashboardRepository.summary()).thenAnswer((_) async => summaryWith(activeStaff: 0));
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Add a staff member'), findsOneWidget);
+    });
+
+    testWidgets('does not show the staff-setup banner once at least one staff member is active', (tester) async {
+      when(() => dashboardRepository.summary()).thenAnswer((_) async => summaryWith(activeStaff: 1));
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Add a staff member'), findsNothing);
+    });
+
+    testWidgets('shows the salon-setup banner, not the staff-setup banner, when the salon does not exist yet', (tester) async {
+      when(() => ownerSalonRepository.show()).thenThrow(
+        const ApiException(message: 'No query results for model [App\\Models\\Salon].', type: ApiErrorType.notFound, statusCode: 404),
+      );
+      when(() => dashboardRepository.summary()).thenAnswer((_) async => summaryWith(activeStaff: 0));
+
+      await tester.pumpWidget(buildApp());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Set up your salon profile'), findsOneWidget);
+      expect(find.text('Add a staff member'), findsNothing);
+    });
   });
 }

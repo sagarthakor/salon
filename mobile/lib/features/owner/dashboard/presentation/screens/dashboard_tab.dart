@@ -56,6 +56,9 @@ class DashboardTab extends ConsumerWidget {
               if (needsSalonSetup) ...[
                 const _SalonSetupBanner(),
                 const SizedBox(height: AppSpacing.lg),
+              ] else if (summary.activeStaff == 0) ...[
+                const _StaffSetupBanner(),
+                const SizedBox(height: AppSpacing.lg),
               ],
               Text("Today's bookings", style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: AppSpacing.sm),
@@ -133,6 +136,34 @@ class _SalonSetupBanner extends StatelessWidget {
         ),
         trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onPrimaryContainer),
         onTap: () => context.push('/owner/salon'),
+      ),
+    );
+  }
+}
+
+/// Shown once the salon exists but no active staff member is configured yet
+/// — the availability algorithm (`AvailabilityService::eligibleStaffQuery()`)
+/// requires at least one staff member assigned to a branch and to a service
+/// before it can ever generate a slot, so a salon with only a Branch and
+/// Services (no staff) is otherwise silently unbookable with no indication
+/// why. See BOOKING_ENGINE.md, "Staff assignment is required for
+/// availability".
+class _StaffSetupBanner extends StatelessWidget {
+  const _StaffSetupBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: ListTile(
+        leading: Icon(Icons.badge_outlined, color: Theme.of(context).colorScheme.onPrimaryContainer),
+        title: Text('Add a staff member', style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer)),
+        subtitle: Text(
+          "Customers can't book any appointment until at least one staff member is added and assigned to a service.",
+          style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
+        ),
+        trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onPrimaryContainer),
+        onTap: () => context.push('/owner/staff/new'),
       ),
     );
   }

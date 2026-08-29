@@ -13,6 +13,7 @@ import '../../features/booking/presentation/screens/audience_selection_screen.da
 import '../../features/booking/presentation/screens/booking_confirmation_screen.dart';
 import '../../features/booking/presentation/screens/booking_details_screen.dart';
 import '../../features/booking/presentation/screens/booking_schedule_screen.dart';
+import '../../features/booking/presentation/screens/booking_cart_screen.dart';
 import '../../features/booking/presentation/screens/booking_service_selection_screen.dart';
 import '../../features/booking/presentation/screens/booking_summary_screen.dart';
 import '../../features/booking/presentation/screens/reschedule_screen.dart';
@@ -168,6 +169,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/booking/audience', builder: (context, state) => const AudienceSelectionScreen()),
       GoRoute(path: '/booking/services', builder: (context, state) => const BookingServiceSelectionScreen()),
+      GoRoute(path: '/booking/cart', builder: (context, state) => const BookingCartScreen()),
       GoRoute(path: '/booking/schedule', builder: (context, state) => const BookingScheduleScreen()),
       GoRoute(path: '/booking/summary', builder: (context, state) => const BookingSummaryScreen()),
       GoRoute(path: '/booking/confirmation', builder: (context, state) => const BookingConfirmationScreen()),

@@ -13,9 +13,10 @@ import '../../../services/presentation/service_instagram_launcher.dart';
 import '../providers/booking_providers.dart';
 import 'booking_flow_scaffold.dart';
 
-/// Step 1 of the booking flow: pick one or more services for the branch
-/// selected on the home screen. `Select Branch → Select Service(s)` per
-/// BOOKING_ENGINE.md's customer flow.
+/// Step 1 of the booking flow: an ecommerce-style catalog — browse service
+/// "products" as cards, add them to a cart, then continue. Same
+/// `Select Branch → Select Service(s)` step per BOOKING_ENGINE.md, just
+/// presented the way a shopping app would rather than a checkbox list.
 class BookingServiceSelectionScreen extends ConsumerStatefulWidget {
   const BookingServiceSelectionScreen({super.key});
 
@@ -50,11 +51,25 @@ class _BookingServiceSelectionScreenState extends ConsumerState<BookingServiceSe
     final providerKey = (branchId: branch.id, audience: audience);
     final servicesAsync = ref.watch(branchServicesProvider(providerKey));
     final flowState = ref.watch(bookingFlowControllerProvider);
+    final cartCount = flowState.selectedServices.length;
     final matchingAudiences = ServiceAudience.values.where((a) => a.apiValue == audience);
     final audienceLabel = matchingAudiences.isEmpty ? null : matchingAudiences.first.label;
 
     return Scaffold(
-      appBar: AppBar(title: Text(audienceLabel == null ? branch.name : '${branch.name} · $audienceLabel')),
+      appBar: AppBar(
+        title: Text(audienceLabel == null ? branch.name : '${branch.name} · $audienceLabel'),
+        actions: [
+          IconButton(
+            tooltip: 'Cart',
+            onPressed: cartCount == 0 ? null : () => context.push('/booking/cart'),
+            icon: Badge(
+              label: Text('$cartCount'),
+              isLabelVisible: cartCount > 0,
+              child: const Icon(Icons.shopping_cart_outlined),
+            ),
+          ),
+        ],
+      ),
       body: servicesAsync.when(
         loading: () => const LoadingView(),
         error: (error, _) => ErrorView(
@@ -85,11 +100,11 @@ class _BookingServiceSelectionScreenState extends ConsumerState<BookingServiceSe
         },
       ),
       bottomNavigationBar: BookingFlowBottomBar(
-        summaryLabel: flowState.selectedServices.isEmpty
-            ? 'Select at least one service'
-            : '${flowState.selectedServices.length} service(s) · ₹${flowState.estimatedTotal} · ${flowState.estimatedDurationMinutes} min',
-        buttonLabel: 'Next',
-        onPressed: flowState.canProceedPastServices ? () => context.push('/booking/schedule') : null,
+        summaryLabel: cartCount == 0
+            ? 'Add services to get started'
+            : '$cartCount service${cartCount == 1 ? '' : 's'} · ₹${flowState.estimatedTotal}',
+        buttonLabel: 'View Cart',
+        onPressed: cartCount == 0 ? null : () => context.push('/booking/cart'),
       ),
     );
   }
@@ -104,21 +119,34 @@ class _CategorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(category.name, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.xs),
-          ...services.map((service) => _ServiceTile(service: service)),
+          const SizedBox(height: AppSpacing.sm),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: services.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: AppSpacing.sm,
+              crossAxisSpacing: AppSpacing.sm,
+              childAspectRatio: 0.66,
+            ),
+            itemBuilder: (context, index) => _ServiceCard(service: services[index]),
+          ),
         ],
       ),
     );
   }
 }
 
-class _ServiceTile extends ConsumerWidget {
-  const _ServiceTile({required this.service});
+/// One "product" in the catalog — tap the card to see full details, tap the
+/// Add/Added button to add or remove it from the cart directly.
+class _ServiceCard extends ConsumerWidget {
+  const _ServiceCard({required this.service});
 
   final SalonService service;
 
@@ -127,60 +155,178 @@ class _ServiceTile extends ConsumerWidget {
     final selected = ref.watch(
       bookingFlowControllerProvider.select((s) => s.selectedServices.any((sel) => sel.id == service.id)),
     );
+    final controller = ref.read(bookingFlowControllerProvider.notifier);
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => ref.read(bookingFlowControllerProvider.notifier).toggleService(service),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Checkbox(value: selected, onChanged: (_) => ref.read(bookingFlowControllerProvider.notifier).toggleService(service)),
-              _ServiceThumbnail(imageUrl: service.imageUrl),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(service.name, style: Theme.of(context).textTheme.titleMedium),
-                      if (service.description != null) ...[
-                        const SizedBox(height: 2),
+        onTap: () => showServiceDetailSheet(context, service: service),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AspectRatio(aspectRatio: 1.3, child: ServiceImage(imageUrl: service.imageUrl)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          service.description!,
-                          maxLines: 2,
+                          service.name,
+                          style: Theme.of(context).textTheme.titleSmall,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (service.description != null && service.description!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            service.description!,
+                            style: Theme.of(context).textTheme.bodySmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('₹${service.price}', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                            Text('${service.durationMinutes} min', style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 34,
+                          child: selected
+                              ? OutlinedButton.icon(
+                                  onPressed: () => controller.toggleService(service),
+                                  icon: const Icon(Icons.check, size: 16),
+                                  label: const Text('Added'),
+                                )
+                              : FilledButton.icon(
+                                  onPressed: () => controller.toggleService(service),
+                                  icon: const Icon(Icons.add, size: 16),
+                                  label: const Text('Add'),
+                                ),
                         ),
                       ],
-                      if (service.instagramUrl != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: InkWell(
-                            onTap: () => openInstagramUrl(Uri.parse(service.instagramUrl!)),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.play_circle_outline, size: 18, color: Theme.of(context).colorScheme.primary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Watch Service Video',
-                                  style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the service-detail bottom sheet — the ecommerce "product page"
+/// equivalent, reused by both the catalog card and (in future) anywhere
+/// else a service needs a closer look.
+void showServiceDetailSheet(BuildContext context, {required SalonService service}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (context) => _ServiceDetailSheet(service: service),
+  );
+}
+
+class _ServiceDetailSheet extends ConsumerWidget {
+  const _ServiceDetailSheet({required this.service});
+
+  final SalonService service;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(
+      bookingFlowControllerProvider.select((s) => s.selectedServices.any((sel) => sel.id == service.id)),
+    );
+    final controller = ref.read(bookingFlowControllerProvider.notifier);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) => SingleChildScrollView(
+        controller: scrollController,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                child: Text('₹${service.price}\n${service.durationMinutes} min', textAlign: TextAlign.right),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: AspectRatio(aspectRatio: 1.6, child: ServiceImage(imageUrl: service.imageUrl)),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(service.name, style: Theme.of(context).textTheme.headlineSmall),
+              if (service.description != null && service.description!.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(service.description!, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Icon(Icons.currency_rupee, size: 18, color: Theme.of(context).colorScheme.primary),
+                  Text('${service.price}', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(width: AppSpacing.lg),
+                  Icon(Icons.schedule, size: 18, color: Theme.of(context).colorScheme.outline),
+                  const SizedBox(width: 4),
+                  Text('${service.durationMinutes} min', style: Theme.of(context).textTheme.titleMedium),
+                ],
+              ),
+              if (service.instagramUrl != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                OutlinedButton.icon(
+                  onPressed: () => openInstagramUrl(Uri.parse(service.instagramUrl!)),
+                  icon: const Icon(Icons.play_circle_outline),
+                  label: const Text('Watch Service Video'),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                child: selected
+                    ? OutlinedButton.icon(
+                        onPressed: () {
+                          controller.toggleService(service);
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.check),
+                        label: const Text('Added — tap to remove'),
+                      )
+                    : FilledButton.icon(
+                        onPressed: () {
+                          controller.toggleService(service);
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.add_shopping_cart),
+                        label: const Text('Add to Cart'),
+                      ),
               ),
             ],
           ),
@@ -190,38 +336,29 @@ class _ServiceTile extends ConsumerWidget {
   }
 }
 
-class _ServiceThumbnail extends StatelessWidget {
-  const _ServiceThumbnail({required this.imageUrl});
+/// Shared service image with a clean placeholder — never a broken-image
+/// icon — reused by the catalog card, the detail sheet, and the cart.
+class ServiceImage extends StatelessWidget {
+  const ServiceImage({super.key, required this.imageUrl});
 
   final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
-    const size = 56.0;
-    if (imageUrl == null) {
-      return _placeholder(context, size);
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _placeholder(context);
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.network(
-        imageUrl!,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _placeholder(context, size),
-      ),
+    return Image.network(
+      imageUrl!,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _placeholder(context),
     );
   }
 
-  Widget _placeholder(BuildContext context, double size) {
+  Widget _placeholder(BuildContext context) {
     return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(Icons.content_cut, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Icon(Icons.content_cut, size: 32, color: Theme.of(context).colorScheme.onSurfaceVariant),
     );
   }
 }

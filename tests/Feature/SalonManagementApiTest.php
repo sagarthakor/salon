@@ -9,6 +9,7 @@ use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\BranchHoliday;
 use App\Models\Salon;
+use App\Models\SalonSetting;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\TenantContext;
@@ -29,6 +30,79 @@ class SalonManagementApiTest extends TestCase
         $client->patchJson('/api/v1/salon', ['name' => 'Royal Gents Updated', 'slug' => 'royal-gents', 'gender_type' => 'unisex', 'status' => 'inactive'])->assertOk()->assertJsonPath('data.gender_type', 'unisex');
         $client->putJson('/api/v1/salon/settings', ['settings' => ['booking_enabled' => true, 'default_timezone' => 'Asia/Kolkata']])->assertOk()->assertJsonPath('data.booking_enabled', true);
         $client->putJson('/api/v1/salon/settings', ['settings' => ['online_payment_enabled' => true]])->assertUnprocessable();
+    }
+
+    /**
+     * Real-device QA bug fix: `GET /salon/settings` for a salon that has
+     * never had its booking settings saved returned an empty array
+     * (`SalonSettingsResource` on a zero-row `salon_settings` collection),
+     * which PHP/Laravel serializes as a JSON array (`[]`) rather than an
+     * object (`{}`) — the Flutter client's `Map<String, dynamic>` cast then
+     * threw a raw `TypeError`, surfacing as "Could not load settings" with
+     * no useful information. `SalonSettingsResource` now always merges in
+     * sensible defaults, which both fixes the array/object bug (the
+     * response can never be empty) and gives a new salon usable settings
+     * immediately, per the actual product requirement.
+     */
+    public function test_a_brand_new_salons_booking_settings_have_sensible_defaults_and_are_never_an_empty_array(): void
+    {
+        [$tenant, $owner, $salon] = $this->tenantWithSalon('freshsettings');
+        $client = $this->actingAs($owner, 'sanctum')->withHeader('X-Tenant-Slug', $tenant->slug);
+
+        $response = $client->getJson('/api/v1/salon/settings')->assertOk();
+        $response->assertJsonPath('data.booking_enabled', true)
+            ->assertJsonPath('data.customer_booking_enabled', true)
+            ->assertJsonPath('data.slot_interval_minutes', 15)
+            ->assertJsonPath('data.min_advance_booking_minutes', 0)
+            ->assertJsonPath('data.max_advance_booking_days', 30)
+            ->assertJsonPath('data.booking_buffer_minutes', 0)
+            ->assertJsonPath('data.cancellation_window_minutes', 0);
+
+        // The literal bug: an empty PHP array json_encodes as `[]`, not
+        // `{}` — assert the raw response body is genuinely object-shaped,
+        // not just that Laravel's test helpers happened to tolerate either.
+        $this->assertStringContainsString('"data":{', $response->getContent());
+        $this->assertStringNotContainsString('"data":[]', $response->getContent());
+
+        app(TenantContext::class)->set($tenant);
+        $this->assertSame(0, SalonSetting::query()->count(), 'Defaults must not be persisted until the owner actually saves something.');
+        app(TenantContext::class)->clear();
+    }
+
+    /**
+     * Saving only one setting must not blow away the defaults for every
+     * other key — both the fresh GET and the PUT's own response reflect the
+     * same fully-merged shape.
+     */
+    public function test_updating_one_booking_setting_leaves_the_others_at_their_defaults(): void
+    {
+        [$tenant, $owner] = $this->tenantWithSalon('partialsettings');
+        $client = $this->actingAs($owner, 'sanctum')->withHeader('X-Tenant-Slug', $tenant->slug);
+
+        $client->putJson('/api/v1/salon/settings', ['settings' => ['slot_interval_minutes' => 20]])
+            ->assertOk()
+            ->assertJsonPath('data.slot_interval_minutes', 20)
+            ->assertJsonPath('data.booking_enabled', true)
+            ->assertJsonPath('data.max_advance_booking_days', 30);
+
+        $client->getJson('/api/v1/salon/settings')->assertOk()
+            ->assertJsonPath('data.slot_interval_minutes', 20)
+            ->assertJsonPath('data.cancellation_window_minutes', 0);
+    }
+
+    public function test_booking_settings_are_tenant_isolated(): void
+    {
+        [$tenantA, $ownerA] = $this->tenantWithSalon('settingsa');
+        [$tenantB, $ownerB] = $this->tenantWithSalon('settingsb');
+
+        $this->actingAs($ownerA, 'sanctum')->withHeader('X-Tenant-Slug', $tenantA->slug)
+            ->putJson('/api/v1/salon/settings', ['settings' => ['slot_interval_minutes' => 45]])->assertOk();
+
+        // Tenant B never touched its settings — still the untouched default,
+        // never tenant A's saved value.
+        $this->actingAs($ownerB, 'sanctum')->withHeader('X-Tenant-Slug', $tenantB->slug)
+            ->getJson('/api/v1/salon/settings')->assertOk()
+            ->assertJsonPath('data.slot_interval_minutes', 15);
     }
 
     public function test_salon_validation_and_owner_authorization_are_enforced(): void

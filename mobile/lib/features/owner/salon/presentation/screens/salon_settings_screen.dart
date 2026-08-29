@@ -32,8 +32,13 @@ class SalonSettingsScreen extends ConsumerWidget {
           if (error is ApiException && error.type == ApiErrorType.notFound) {
             return const ErrorView(message: 'Please set up your salon profile first.');
           }
+          // A friendly, non-technical fallback for anything else — including
+          // a failure that never reached the backend at all (never a raw
+          // exception name/stack trace). `error.message` is used first
+          // since ApiException already carries a human-readable message for
+          // every classified failure (network, timeout, server, etc.).
           return ErrorView(
-            message: error is ApiException ? error.message : 'Could not load settings.',
+            message: error is ApiException ? error.message : 'Booking settings could not be loaded. Please try again.',
             onRetry: () => ref.invalidate(ownerSalonSettingsProvider),
           );
         },

@@ -296,6 +296,62 @@ class BookingEngineApiTest extends TestCase
         $api->getJson("/api/v1/branches/{$f['branch']->id}/availability?date=$date&service_ids[]={$f['haircut']->id}")->assertOk()->assertJsonCount(0, 'data.slots');
     }
 
+    /**
+     * Real-device QA finding: a salon can have a Salon, a Branch, Services,
+     * and correctly-configured working hours and still show "No time slot
+     * available" on every single date — not a bug in the slot-generation
+     * algorithm, but `AvailabilityService::eligibleStaffQuery()`'s hard,
+     * by-design requirement that at least one ACTIVE staff member be
+     * assigned to both the branch and the requested service before any slot
+     * can ever be produced (see AvailabilityService::forBranch(), the
+     * `$candidateStaff->isEmpty()` early return). A brand-new salon has zero
+     * staff until the owner explicitly adds one — nothing in onboarding
+     * does this automatically, nor should it (no fake staff/bookings). This
+     * proves the dependency precisely: identical working hours, zero slots
+     * with no staff, slots immediately available again the moment a
+     * qualifying staff member exists — confirming the fix belongs in
+     * owner-facing guidance (the new Dashboard "Add a staff member" banner),
+     * never in the algorithm itself.
+     */
+    public function test_a_branch_with_working_hours_but_no_eligible_staff_has_zero_available_slots(): void
+    {
+        $f = $this->fixture('a');
+        $api = $this->actingAs($f['owner'], 'sanctum')->withHeader('X-Tenant-Slug', $f['tenant']->slug);
+        $date = $this->bookingDate();
+
+        // Working hours are already configured by fixture('a') — confirm
+        // slots exist with the fixture's own staff first.
+        $withFixtureStaff = $api->getJson("/api/v1/branches/{$f['branch']->id}/availability?date=$date&service_ids[]={$f['haircut']->id}")
+            ->assertOk()->json('data.slots');
+        $this->assertNotEmpty($withFixtureStaff);
+
+        // Remove every staff member capable of performing this service —
+        // simulating a real new salon that never configured any yet.
+        app(TenantContext::class)->set($f['tenant']);
+        Staff::query()->update(['status' => BusinessStatus::INACTIVE]);
+        app(TenantContext::class)->clear();
+
+        $noStaff = $api->getJson("/api/v1/branches/{$f['branch']->id}/availability?date=$date&service_ids[]={$f['haircut']->id}")
+            ->assertOk()->json('data');
+        $this->assertSame([], $noStaff['slots'], 'Working hours alone must never be sufficient — zero eligible staff must mean zero slots.');
+
+        // Owner adds a real staff member and assigns them to the service —
+        // the exact remediation the new Dashboard banner points at. Slots
+        // must reappear immediately, with no other configuration needed.
+        app(TenantContext::class)->set($f['tenant']);
+        $newStaff = Staff::query()->create(['name' => 'New Stylist', 'gender' => 'female', 'status' => BusinessStatus::ACTIVE]);
+        $newStaff->branches()->sync([$f['branch']->id => ['tenant_id' => $f['tenant']->id]]);
+        app(TenantContext::class)->clear();
+        $api->putJson("/api/v1/staff/{$newStaff->id}/services", ['service_ids' => [$f['haircut']->id]])->assertOk();
+        $api->putJson("/api/v1/staff/{$newStaff->id}/working-hours", [
+            'hours' => array_map(fn ($d) => ['day_of_week' => $d, 'is_working' => true, 'start_time' => '09:00', 'end_time' => '20:00'], range(0, 6)),
+        ])->assertOk();
+
+        $withStaff = $api->getJson("/api/v1/branches/{$f['branch']->id}/availability?date=$date&service_ids[]={$f['haircut']->id}")
+            ->assertOk()->json('data');
+        $this->assertNotEmpty($withStaff['slots'], 'Once a real staff member is configured, the same working hours must produce real slots.');
+    }
+
     public function test_availability_excludes_staff_on_break_or_leave_but_falls_back_to_other_eligible_staff(): void
     {
         $f = $this->fixture('a');
