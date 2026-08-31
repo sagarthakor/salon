@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../../core/network/api_exception.dart';
 import '../../../../../core/theme/app_spacing.dart';
+import '../../../../../shared/constants/timezones.dart';
 import '../../../../../shared/widgets/primary_button.dart';
 import '../../../../../shared/widgets/state_views.dart';
 import '../../../../salon/data/models/branch.dart';
@@ -49,6 +50,7 @@ class _BranchFormState extends ConsumerState<_BranchForm> {
   late final _addressController = TextEditingController(text: widget.existing?.address.line1);
   late final _cityController = TextEditingController(text: widget.existing?.address.city);
   String _status = 'active';
+  late String _timezone;
   bool _isSubmitting = false;
   String? _errorMessage;
   Map<String, List<String>>? _fieldErrors;
@@ -57,6 +59,10 @@ class _BranchFormState extends ConsumerState<_BranchForm> {
   void initState() {
     super.initState();
     _status = widget.existing?.status ?? 'active';
+    // See the identical note in salon_profile_screen.dart — this drives
+    // AvailabilityService/BookingService's same-day "already past" cutoff,
+    // not just a display preference.
+    _timezone = widget.existing?.timezone ?? 'Asia/Kolkata';
   }
 
   @override
@@ -85,6 +91,7 @@ class _BranchFormState extends ConsumerState<_BranchForm> {
           email: _emailController.text.trim(),
           addressLine1: _addressController.text.trim(),
           city: _cityController.text.trim(),
+          timezone: _timezone,
           status: _status,
         );
       } else {
@@ -95,6 +102,7 @@ class _BranchFormState extends ConsumerState<_BranchForm> {
           email: _emailController.text.trim(),
           addressLine1: _addressController.text.trim(),
           city: _cityController.text.trim(),
+          timezone: _timezone,
           status: _status,
         );
         ref.invalidate(ownerBranchDetailsProvider(widget.branchId!));
@@ -144,6 +152,17 @@ class _BranchFormState extends ConsumerState<_BranchForm> {
             TextFormField(controller: _addressController, decoration: const InputDecoration(labelText: 'Address')),
             const SizedBox(height: AppSpacing.md),
             TextFormField(controller: _cityController, decoration: const InputDecoration(labelText: 'City')),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String>(
+              initialValue: kCommonTimezones.contains(_timezone) ? _timezone : kCommonTimezones.first,
+              decoration: const InputDecoration(
+                labelText: 'Timezone',
+                helperText: "Used to work out what's already past for today's bookings — pick where this branch actually operates.",
+                helperMaxLines: 2,
+              ),
+              items: kCommonTimezones.map((tz) => DropdownMenuItem(value: tz, child: Text(tz))).toList(),
+              onChanged: (v) => setState(() => _timezone = v ?? _timezone),
+            ),
             const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String>(
               initialValue: _status,

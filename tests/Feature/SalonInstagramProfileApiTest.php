@@ -33,6 +33,7 @@ class SalonInstagramProfileApiTest extends TestCase
         $api->postJson('/api/v1/salon', [
             'name' => 'Prime Hair Studio',
             'gender_type' => 'unisex',
+            'timezone' => 'Asia/Kolkata',
             'instagram_url' => 'https://www.instagram.com/primehairstudio/',
         ])->assertCreated()->assertJsonPath('data.instagram_url', 'https://www.instagram.com/primehairstudio/');
     }
@@ -72,6 +73,7 @@ class SalonInstagramProfileApiTest extends TestCase
         $api->postJson('/api/v1/salon', [
             'name' => 'Prime Hair Studio',
             'gender_type' => 'unisex',
+            'timezone' => 'Asia/Kolkata',
             'instagram_url' => 'instagram.com/PrimeHairStudio',
         ])->assertCreated()->assertJsonPath('data.instagram_url', 'https://instagram.com/PrimeHairStudio');
     }

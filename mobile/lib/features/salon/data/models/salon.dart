@@ -16,6 +16,7 @@ class Salon {
     this.instagramUrl,
     required this.address,
     required this.status,
+    this.timezone = 'UTC',
   });
 
   factory Salon.fromJson(Map<String, dynamic> json) => Salon(
@@ -32,6 +33,7 @@ class Salon {
     instagramUrl: json['instagram_url'] as String?,
     address: Address.fromJson(json['address'] as Map<String, dynamic>?),
     status: json['status'] as String,
+    timezone: json['timezone'] as String? ?? 'UTC',
   );
 
   final String id;
@@ -47,4 +49,5 @@ class Salon {
   final String? instagramUrl;
   final Address address;
   final String status;
+  final String timezone;
 }

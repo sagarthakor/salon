@@ -6,6 +6,7 @@ import '../../../../../core/network/api_exception.dart';
 import '../../../../../core/theme/app_spacing.dart';
 import '../../../../../shared/widgets/primary_button.dart';
 import '../../../../../shared/widgets/state_views.dart';
+import '../../../../../shared/constants/timezones.dart';
 import '../../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../salon/data/models/salon.dart';
 import '../providers/owner_salon_providers.dart';
@@ -75,6 +76,7 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
   late final _cityController = TextEditingController(text: widget.existing?.address.city);
   late String _genderType;
   late String _status;
+  late String _timezone;
   bool _isSubmitting = false;
   String? _error;
   Map<String, List<String>>? _fieldErrors;
@@ -86,6 +88,12 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
     super.initState();
     _genderType = widget.existing?.genderType ?? 'unisex';
     _status = widget.existing?.status ?? 'active';
+    // 'Asia/Kolkata' is only a starting suggestion for a brand-new salon —
+    // this value is what AvailabilityService/BookingService compare "now"
+    // against when deciding whether a same-day slot has already passed, so
+    // it must be correct for wherever this salon actually operates, not
+    // just accepted as-is.
+    _timezone = widget.existing?.timezone ?? 'Asia/Kolkata';
   }
 
   @override
@@ -141,6 +149,7 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
           instagramUrl: _instagramUrlController.text.trim(),
           addressLine1: _addressController.text.trim(),
           city: _cityController.text.trim(),
+          timezone: _timezone,
         );
       } else {
         await repository.update(
@@ -153,6 +162,7 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
           instagramUrl: _instagramUrlController.text.trim(),
           addressLine1: _addressController.text.trim(),
           city: _cityController.text.trim(),
+          timezone: _timezone,
           status: _status,
         );
       }
@@ -223,6 +233,17 @@ class _SalonFormState extends ConsumerState<_SalonForm> {
                 DropdownMenuItem(value: 'unisex', child: Text('Unisex')),
               ],
               onChanged: (v) => setState(() => _genderType = v ?? 'unisex'),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String>(
+              initialValue: kCommonTimezones.contains(_timezone) ? _timezone : kCommonTimezones.first,
+              decoration: const InputDecoration(
+                labelText: 'Timezone',
+                helperText: "Used to work out what's already past for today's bookings — pick where this salon actually operates.",
+                helperMaxLines: 2,
+              ),
+              items: kCommonTimezones.map((tz) => DropdownMenuItem(value: tz, child: Text(tz))).toList(),
+              onChanged: (v) => setState(() => _timezone = v ?? _timezone),
             ),
             const SizedBox(height: AppSpacing.md),
             TextFormField(controller: _phoneController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone')),

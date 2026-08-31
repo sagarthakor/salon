@@ -112,7 +112,7 @@ class SalonManagementApiTest extends TestCase
 
         $staff = User::factory()->create(['role' => UserRole::STAFF]);
         $tenant->users()->attach($staff, ['role' => TenantMembershipRole::STAFF->value]);
-        $this->actingAs($staff, 'sanctum')->withHeader('X-Tenant-Slug', $tenant->slug)->postJson('/api/v1/salon', ['name' => 'Forbidden', 'gender_type' => 'male'])->assertForbidden();
+        $this->actingAs($staff, 'sanctum')->withHeader('X-Tenant-Slug', $tenant->slug)->postJson('/api/v1/salon', ['name' => 'Forbidden', 'gender_type' => 'male', 'timezone' => 'Asia/Kolkata'])->assertForbidden();
     }
 
     public function test_owner_can_manage_branches_working_hours_and_holidays(): void

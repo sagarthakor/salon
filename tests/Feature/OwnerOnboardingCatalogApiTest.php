@@ -56,6 +56,7 @@ class OwnerOnboardingCatalogApiTest extends TestCase
         $salon = $api->postJson('/api/v1/salon', [
             'name' => 'Sunny Unisex Salon',
             'gender_type' => 'unisex',
+            'timezone' => 'Asia/Kolkata',
         ])->assertCreated()->json('data');
 
         // GET /salon must succeed immediately, in the very next request —
@@ -78,7 +79,7 @@ class OwnerOnboardingCatalogApiTest extends TestCase
         [$tenant, $owner] = $this->tenantWithOwner('a');
         $api = $this->actingAs($owner, 'sanctum')->withHeader('X-Tenant-Slug', $tenant->slug);
 
-        $api->postJson('/api/v1/salon', ['name' => 'Sunny Unisex Salon', 'gender_type' => 'unisex'])->assertCreated();
+        $api->postJson('/api/v1/salon', ['name' => 'Sunny Unisex Salon', 'gender_type' => 'unisex', 'timezone' => 'Asia/Kolkata'])->assertCreated();
 
         app(TenantContext::class)->set($tenant);
         $branches = Branch::query()->get();
@@ -93,7 +94,7 @@ class OwnerOnboardingCatalogApiTest extends TestCase
     {
         [$tenant, $owner] = $this->tenantWithOwner('a');
         $api = $this->actingAs($owner, 'sanctum')->withHeader('X-Tenant-Slug', $tenant->slug);
-        $api->postJson('/api/v1/salon', ['name' => 'Sunny Unisex Salon', 'gender_type' => 'unisex'])->assertCreated();
+        $api->postJson('/api/v1/salon', ['name' => 'Sunny Unisex Salon', 'gender_type' => 'unisex', 'timezone' => 'Asia/Kolkata'])->assertCreated();
 
         $api->postJson('/api/v1/branches', ['name' => 'Second Branch', 'timezone' => 'Asia/Kolkata'])->assertCreated();
 
@@ -108,12 +109,12 @@ class OwnerOnboardingCatalogApiTest extends TestCase
     {
         [$tenant, $owner] = $this->tenantWithOwner('a');
         $api = $this->actingAs($owner, 'sanctum')->withHeader('X-Tenant-Slug', $tenant->slug);
-        $api->postJson('/api/v1/salon', ['name' => 'Sunny Unisex Salon', 'gender_type' => 'unisex'])->assertCreated();
+        $api->postJson('/api/v1/salon', ['name' => 'Sunny Unisex Salon', 'gender_type' => 'unisex', 'timezone' => 'Asia/Kolkata'])->assertCreated();
 
         // A second POST /salon for the same tenant is rejected outright
         // (the pre-existing guard) — proving the provisioning-triggering
         // path itself can never be invoked twice for one tenant.
-        $api->postJson('/api/v1/salon', ['name' => 'Duplicate Attempt', 'gender_type' => 'unisex'])->assertStatus(409);
+        $api->postJson('/api/v1/salon', ['name' => 'Duplicate Attempt', 'gender_type' => 'unisex', 'timezone' => 'Asia/Kolkata'])->assertStatus(409);
 
         app(TenantContext::class)->set($tenant);
         $this->assertSame(75, Service::query()->count());
@@ -126,12 +127,12 @@ class OwnerOnboardingCatalogApiTest extends TestCase
         [$tenantA, $ownerA] = $this->tenantWithOwner('a');
         [$tenantB, $ownerB] = $this->tenantWithOwner('b');
         $this->actingAs($ownerA, 'sanctum')->withHeader('X-Tenant-Slug', $tenantA->slug)
-            ->postJson('/api/v1/salon', ['name' => 'Salon A', 'gender_type' => 'unisex'])->assertCreated();
+            ->postJson('/api/v1/salon', ['name' => 'Salon A', 'gender_type' => 'unisex', 'timezone' => 'Asia/Kolkata'])->assertCreated();
         $serviceA = $this->actingAs($ownerA, 'sanctum')->withHeader('X-Tenant-Slug', $tenantA->slug)
             ->getJson('/api/v1/services?per_page=1')->json('data.0');
 
         $this->actingAs($ownerB, 'sanctum')->withHeader('X-Tenant-Slug', $tenantB->slug)
-            ->postJson('/api/v1/salon', ['name' => 'Salon B', 'gender_type' => 'unisex'])->assertCreated();
+            ->postJson('/api/v1/salon', ['name' => 'Salon B', 'gender_type' => 'unisex', 'timezone' => 'Asia/Kolkata'])->assertCreated();
 
         // Tenant B has no membership in tenant A — direct-ID cross-tenant
         // access to A's auto-provisioned service is rejected exactly like
@@ -169,7 +170,7 @@ class OwnerOnboardingCatalogApiTest extends TestCase
 
         [$newTenant, $newOwner] = $this->tenantWithOwner('new');
         $this->actingAs($newOwner, 'sanctum')->withHeader('X-Tenant-Slug', $newTenant->slug)
-            ->postJson('/api/v1/salon', ['name' => 'New Owner Salon', 'gender_type' => 'unisex'])->assertCreated();
+            ->postJson('/api/v1/salon', ['name' => 'New Owner Salon', 'gender_type' => 'unisex', 'timezone' => 'Asia/Kolkata'])->assertCreated();
 
         app(TenantContext::class)->set($legacyTenant);
         $freshLegacyService = Service::query()->findOrFail($legacyService->id);
