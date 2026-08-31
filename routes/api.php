@@ -56,6 +56,9 @@ Route::prefix('v1')->group(function (): void {
         // customer_profiles membership required. See CustomerSalonController.
         Route::get('discover-salons', [CustomerSalonController::class, 'discover']);
         Route::get('salons/{salon}/branches', [CustomerSalonController::class, 'branches']);
+        // Branded single-salon apps (see config/brand_apps.php) resolve their
+        // fixed salon from the tenant id baked into their build.
+        Route::get('brand/{tenant}', [CustomerSalonController::class, 'byTenant']);
 
         Route::get('profile', [CustomerProfileController::class, 'show']);
         Route::match(['put', 'patch'], 'profile', [CustomerProfileController::class, 'update']);

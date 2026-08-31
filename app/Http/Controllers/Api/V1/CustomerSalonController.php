@@ -90,4 +90,23 @@ class CustomerSalonController extends Controller
 
         return ApiResponse::success(BranchResource::collection($branches), 'Branches retrieved.');
     }
+
+    /**
+     * Resolves the single salon for a branded, single-tenant Flutter app
+     * (see `config/brand_apps.php`) from the tenant id baked into that
+     * build — the same public/cross-tenant pattern as `discover()`, just
+     * keyed by tenant id instead of returning every active salon. This is
+     * how a branded app turns "tenant id baked into the build" into the
+     * `salon_id` it feeds into the existing, unchanged
+     * `GET /customer/salons/{salon}/branches` → booking flow, without ever
+     * needing a hardcoded salon/branch id. `salons.tenant_id` is globally
+     * unique (see the `create_salon_management_tables` migration), so this
+     * can never resolve more than one salon.
+     */
+    public function byTenant(string $tenant): JsonResponse
+    {
+        $salon = Salon::withoutGlobalScope('tenant')->where('tenant_id', $tenant)->where('status', BusinessStatus::ACTIVE)->firstOrFail();
+
+        return ApiResponse::success(new SalonResource($salon), 'Salon retrieved.');
+    }
 }

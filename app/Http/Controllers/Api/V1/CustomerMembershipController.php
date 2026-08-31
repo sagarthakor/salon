@@ -14,6 +14,7 @@ use App\Models\MembershipPayment;
 use App\Models\MembershipPlan;
 use App\Services\Membership\MembershipService;
 use App\Support\ApiResponse;
+use App\Support\BrandAppGuard;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,9 +30,10 @@ class CustomerMembershipController extends Controller
     public function __construct(private readonly MembershipService $memberships) {}
 
     /** Public browse — mirrors `GET /branches/{branch}/services`. */
-    public function plans(string $branch): JsonResponse
+    public function plans(Request $request, string $branch): JsonResponse
     {
         $branchModel = Branch::withoutGlobalScope('tenant')->findOrFail($branch);
+        app(BrandAppGuard::class)->assertTenant($request, $branchModel->tenant_id);
         $plans = MembershipPlan::withoutGlobalScope('tenant')
             ->where('tenant_id', $branchModel->tenant_id)->where('is_active', true)->get();
 

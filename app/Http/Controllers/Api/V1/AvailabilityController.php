@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\Staff;
 use App\Services\Booking\AvailabilityService;
 use App\Support\ApiResponse;
+use App\Support\BrandAppGuard;
 use App\Support\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,7 @@ class AvailabilityController extends Controller
     public function index(AvailabilityRequest $request, string $branch): JsonResponse
     {
         $branchModel = Branch::withoutGlobalScope('tenant')->findOrFail($branch);
+        app(BrandAppGuard::class)->assertTenant($request, $branchModel->tenant_id);
         $context = app(TenantContext::class);
         $context->set($branchModel->tenant);
         try {

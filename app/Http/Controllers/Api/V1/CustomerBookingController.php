@@ -17,6 +17,7 @@ use App\Services\Booking\BookingService;
 use App\Services\Booking\Exceptions\BookingUnavailableException;
 use App\Services\Pricing\BookingPricingService;
 use App\Support\ApiResponse;
+use App\Support\BrandAppGuard;
 use App\Support\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
@@ -42,6 +43,7 @@ class CustomerBookingController extends Controller
     public function store(CustomerBookingRequest $request): JsonResponse
     {
         $branch = Branch::withoutGlobalScope('tenant')->findOrFail($request->validated('branch_id'));
+        app(BrandAppGuard::class)->assertTenant($request, $branch->tenant_id);
         $context = app(TenantContext::class);
         $context->set($branch->tenant);
         try {
@@ -70,6 +72,7 @@ class CustomerBookingController extends Controller
     public function pricePreview(BookingPricePreviewRequest $request): JsonResponse
     {
         $branch = Branch::withoutGlobalScope('tenant')->findOrFail($request->validated('branch_id'));
+        app(BrandAppGuard::class)->assertTenant($request, $branch->tenant_id);
         $context = app(TenantContext::class);
         $context->set($branch->tenant);
         try {
@@ -200,6 +203,7 @@ class CustomerBookingController extends Controller
     {
         $booking = Booking::withoutGlobalScope('tenant')->findOrFail($id);
         abort_unless(in_array($booking->customer_id, $this->ownCustomerIds($request), true), 404);
+        app(BrandAppGuard::class)->assertTenant($request, $booking->tenant_id);
 
         return $booking;
     }

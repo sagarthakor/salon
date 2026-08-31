@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Support\ApiResponse;
+use App\Support\BrandAppGuard;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class CustomerServiceController extends Controller
     public function index(string $branch, Request $request): JsonResponse
     {
         $branchModel = Branch::withoutGlobalScope('tenant')->findOrFail($branch);
+        app(BrandAppGuard::class)->assertTenant($request, $branchModel->tenant_id);
         $audience = $request->filled('audience') ? ServiceAudience::tryFrom($request->string('audience')->toString()) : null;
         if ($request->filled('audience') && $audience === null) {
             return ApiResponse::error('Invalid audience.', ['audience' => ['The selected audience is invalid.']], 422);
