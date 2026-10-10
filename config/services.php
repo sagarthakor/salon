@@ -45,4 +45,17 @@ return [
         'mode' => env('PAYMENT_GATEWAY_MODE', 'test'),
     ],
 
+    // Instagram API with Instagram Login (Professional accounts). Standard
+    // Access is enough for accounts the app owner manages; see
+    // SALON_MEDIA_ARCHITECTURE.md for the Meta dashboard setup.
+    'instagram' => [
+        'app_id' => env('INSTAGRAM_APP_ID'),
+        'app_secret' => env('INSTAGRAM_APP_SECRET'),
+        'redirect_uri' => env('INSTAGRAM_REDIRECT_URI'),
+        'graph_url' => 'https://graph.instagram.com',
+        'oauth_url' => 'https://api.instagram.com',
+        'authorize_url' => 'https://www.instagram.com/oauth/authorize',
+        'scopes' => ['instagram_business_basic'],
+    ],
+
 ];

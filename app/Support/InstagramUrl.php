@@ -65,6 +65,41 @@ class InstagramUrl
     }
 
     /**
+     * The post/reel shortcode (the case-sensitive id in `/p|reel|reels|tv/{code}`),
+     * or null if the URL is not an instagram.com post link. Tolerant of an
+     * optional `www`, trailing slash, query string, and a leading
+     * `/{username}` segment, so every equivalent form of one Reel yields the
+     * same code. Pure string handling — never fetches the URL.
+     */
+    public static function shortcode(string $url): ?string
+    {
+        $parts = parse_url(trim($url));
+        if ($parts === false || ! isset($parts['scheme'], $parts['host']) || strtolower($parts['scheme']) !== 'https') {
+            return null;
+        }
+        if (! in_array(strtolower($parts['host']), self::ALLOWED_HOSTS, true)) {
+            return null;
+        }
+
+        return preg_match('#^(?:/[A-Za-z0-9._]{1,30})?/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)/?$#', $parts['path'] ?? '', $matches) === 1 ? $matches[1] : null;
+    }
+
+    /**
+     * One canonical spelling per post (`https://www.instagram.com/{type}/{code}/`,
+     * query string dropped), or null if [isValid] would reject it.
+     */
+    public static function canonical(string $url): ?string
+    {
+        if (! self::isValid($url)) {
+            return null;
+        }
+        $path = self::httpsInstagramPath($url) ?? '';
+        preg_match('#^/(p|reel|tv)/([A-Za-z0-9_-]+)/?$#', $path, $matches);
+
+        return "https://www.instagram.com/{$matches[1]}/{$matches[2]}/";
+    }
+
+    /**
      * Requires `https`, an instagram.com host, and a single path segment
      * that is a plausible Instagram username (letters/digits/`.`/`_`,
      * 1–30 chars — Instagram's own limit) and not one of the reserved,

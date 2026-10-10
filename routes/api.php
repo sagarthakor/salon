@@ -14,9 +14,12 @@ use App\Http\Controllers\Api\V1\CustomerMembershipController;
 use App\Http\Controllers\Api\V1\CustomerNoteController;
 use App\Http\Controllers\Api\V1\CustomerProfileController;
 use App\Http\Controllers\Api\V1\CustomerSalonController;
+use App\Http\Controllers\Api\V1\CustomerSalonMediaController;
 use App\Http\Controllers\Api\V1\CustomerServiceController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
+use App\Http\Controllers\Api\V1\InstagramCallbackController;
+use App\Http\Controllers\Api\V1\InstagramConnectionController;
 use App\Http\Controllers\Api\V1\LoyaltyManagementController;
 use App\Http\Controllers\Api\V1\MembershipManagementController;
 use App\Http\Controllers\Api\V1\MembershipPlanController;
@@ -26,6 +29,7 @@ use App\Http\Controllers\Api\V1\PaymentWebhookController;
 use App\Http\Controllers\Api\V1\PlanController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SalonController;
+use App\Http\Controllers\Api\V1\SalonMediaController;
 use App\Http\Controllers\Api\V1\ServiceCategoryController;
 use App\Http\Controllers\Api\V1\ServiceController;
 use App\Http\Controllers\Api\V1\StaffBreakController;
@@ -87,6 +91,8 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function (): void {
         Route::get('branches/{branch}/availability', [AvailabilityController::class, 'index']);
         Route::get('branches/{branch}/services', [CustomerServiceController::class, 'index']);
+        // Hair Inspiration / "Our Work" gallery — see SALON_MEDIA_ARCHITECTURE.md.
+        Route::get('branches/{branch}/gallery', [CustomerSalonMediaController::class, 'index']);
         // Public browse, scoped by branch — mirrors the two routes above
         // (see MOBILE_API_INTEGRATION.md for why branch-scoped catalog
         // endpoints need no tenant.context/X-Tenant-Slug).
@@ -139,6 +145,11 @@ Route::prefix('v1')->group(function (): void {
         Route::get('invoices', [SubscriptionController::class, 'invoices']);
     });
 
+    // OAuth redirect target — opened in the owner's browser, so no bearer
+    // token; the single-use `state` is the authentication. See
+    // InstagramCallbackController.
+    Route::get('instagram/callback', InstagramCallbackController::class)->middleware('throttle:30,1');
+
     // No auth — the gateway calls this directly. Authenticity comes from the
     // signature check inside the controller, never from Sanctum.
     Route::post('webhooks/razorpay', [PaymentWebhookController::class, 'handle']);
@@ -163,6 +174,19 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('branches/{branch}/holidays/{holiday}', [BranchHolidayController::class, 'destroy']);
         Route::apiResource('service-categories', ServiceCategoryController::class);
         Route::apiResource('services', ServiceController::class);
+
+        // Hair Inspiration gallery + Instagram connection (owner/super-admin
+        // only; every write is gated by `managedTenant()` in the controllers).
+        Route::get('salon-media', [SalonMediaController::class, 'index']);
+        Route::post('salon-media', [SalonMediaController::class, 'store']);
+        Route::post('salon-media/reorder', [SalonMediaController::class, 'reorder']);
+        Route::get('salon-media/{media}', [SalonMediaController::class, 'show']);
+        Route::match(['put', 'patch'], 'salon-media/{media}', [SalonMediaController::class, 'update']);
+        Route::delete('salon-media/{media}', [SalonMediaController::class, 'destroy']);
+        Route::get('instagram/connection', [InstagramConnectionController::class, 'show']);
+        Route::post('instagram/connect', [InstagramConnectionController::class, 'connect']);
+        Route::delete('instagram/connection', [InstagramConnectionController::class, 'disconnect']);
+        Route::post('instagram/sync', [InstagramConnectionController::class, 'sync'])->middleware('throttle:checkout');
 
         Route::get('staff/me', [StaffController::class, 'me']);
         Route::apiResource('staff', StaffController::class);

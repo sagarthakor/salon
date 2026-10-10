@@ -27,3 +27,7 @@ Schedule::command('notifications:process-reminders')->everyTenMinutes();
 // idempotent sweeps; running either twice in the same day is a safe no-op.
 Schedule::command('memberships:expire')->daily();
 Schedule::command('loyalty:expire-points')->daily();
+
+// Instagram long-lived tokens (60 days) — refresh ahead of expiry; see
+// SALON_MEDIA_ARCHITECTURE.md. Idempotent.
+Schedule::command('instagram:refresh-tokens')->daily();

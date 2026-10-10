@@ -184,3 +184,38 @@ Reports & analytics (Phase 13 — `auth:sanctum` + `tenant.context` + `subscript
 - Response shape: `data` contains whichever of `summary` (aggregate totals), `series` (a zero-filled, timezone-bucketed time series), `breakdown` (grouped sub-totals, e.g. by branch/staff/service), and `data` (a paginated list, e.g. top customers or coupon usage) apply to that report.
 - `range=today`/`this_week`/etc. resolve against the salon's timezone (or a filtered branch's own timezone), never the server's — see "Timezone handling" in `REPORTING_ANALYTICS_ARCHITECTURE.md`. `GET /dashboard/summary` (Phase 8, above) was fixed in this phase to use the same resolution instead of the server's UTC clock.
 - Revenue/staff/service figures use `booking_items`' historical price snapshots and proportionally allocate each booking's discount across its items — a later service-price or coupon-config change never changes a past report. Coupon/loyalty reports read only from their immutable ledgers (`coupon_usages`/`loyalty_transactions`), never a model's current configuration. Membership revenue is `membership_payments` only — never mixed with SaaS `payments`/`invoices` (Phase 10's own subscription/billing history remains at `/subscription*`, unchanged by this phase).
+
+## Hair Inspiration gallery & Instagram connection
+
+Full design, security model and Meta setup: `SALON_MEDIA_ARCHITECTURE.md`. All responses use the standard `{success, message, data}` envelope; list endpoints return a plain array paginated with `page` / `per_page` (like every other list), with no `meta` block.
+
+**Owner / super-admin** (`auth:sanctum`, `tenant.context` + `X-Tenant-Slug`, `subscription.active`; everything is gated by `managedTenant()`, so staff and customers get `403`; another tenant's id is a `404`):
+
+| Method & path | Notes |
+|---|---|
+| `GET /salon-media` | Filters: `source` (`instagram`/`upload`), `category`, `media_type`, `branch_id`, `is_active`. `per_page` max 100. |
+| `POST /salon-media` | `multipart/form-data`. Requires a `video` file **or** an `instagram_url`. Optional `thumbnail`, `caption` (≤2200; setting or clearing it marks it owner-managed so syncs never refill it), `category` (`haircut`, `hair_colour`, `highlights`, `styling`, `transformation`, `other`), `service_id`, `branch_id`, `is_active`, `sort_order`. `video`: `mp4`/`mov`, content-sniffed `video/mp4`\|`video/quicktime`, max `SALON_MEDIA_MAX_VIDEO_KB` (default 50 MB). `thumbnail`: jpg/png/webp ≤5 MB. `instagram_url` must be an instagram.com `/p/`, `/reel/` or `/tv/` link; it is stored in canonical form `https://www.instagram.com/{type}/{code}/` (query string dropped), and a Reel already in the gallery is rejected with `422` however its URL is spelled (`www`, trailing slash, `?igsh=…`, `/p/` vs `/reel/`). Boolean form fields must be `1`/`0`. |
+| `GET /salon-media/{media}` | |
+| `PUT\|PATCH /salon-media/{media}` | Same fields, all optional. Multipart updates use `POST` + `_method=PUT`. `sort_order` omitted or `null` keeps the current position. `remove_video` / `remove_thumbnail` delete the stored file; an item must always keep a hosted video or an Instagram link (`422` otherwise). |
+| `DELETE /salon-media/{media}` | Deletes the row and its stored files. |
+| `POST /salon-media/reorder` | `{ids: [...]}` — positions become 1..n; any id not in the caller's tenant is a `422`. |
+| `GET /instagram/connection` | `configured`, `connected`, `status`, `needs_reconnect`, `username`, `account_type`, `token_expires_at`, `last_synced_at`, `last_error`. **Never returns a token.** |
+| `POST /instagram/connect` | Returns `{authorization_url}` (Instagram Login, scope `instagram_business_basic`). `503` if the server has no Instagram credentials. |
+| `DELETE /instagram/connection` | Deletes the stored token; gallery items remain. |
+| `POST /instagram/sync` | Throttled (`checkout` limiter). Imports metadata only; new items are created hidden. Returns `{created, updated, skipped}`. A Reel the owner already added by link is adopted (matched by shortcode), not duplicated. An item the owner deleted is remembered by its Instagram id and is **not recreated** by later syncs (it counts as `skipped`; pasting its link again re-adds it). A caption the owner has set or deliberately cleared is never refilled. Two overlapping syncs are safe: the loser reuses the winner's row. Errors carry a stable top-level `kind` (see below); only a genuine token error marks the connection `expired`. |
+
+**Instagram error `kind`** (top-level field on every failed `/instagram/connect` and `/instagram/sync` response, next to `success`/`message`/`errors`; part of the contract — new kinds may be added, existing ones are not renamed; no tokens or provider payloads are ever included):
+
+| `kind` | HTTP | Meaning | `GET /instagram/connection` afterwards |
+|---|---|---|---|
+| `reconnect_required` | 409 | Token invalid, expired or revoked (code 190/102, OAuth expiry subcode, HTTP 401, or a rejected code exchange). | `needs_reconnect: true` (status `expired`) |
+| `permission_denied` | 409 | Token is valid but Instagram has not granted the access needed (code 10 / 200–299). | unchanged (`needs_reconnect: false`) |
+| `not_connected` | 409 | No Instagram connection exists for this tenant. | `connected: false` |
+| `rate_limited` | 429 | Instagram rate limit (HTTP 429, codes 4/17/32/613/80002). | unchanged |
+| `invalid_request` | 502 | Instagram rejected the request (code 100). | unchanged |
+| `unavailable` | 502 | Any other Instagram/network failure. | unchanged |
+| `not_configured` | 503 | The server has no Instagram credentials. | `configured: false` |
+
+**Public OAuth redirect:** `GET /instagram/callback?code=&state=` — no bearer token; the single-use, tenant- and user-bound `state` (10 min) authenticates it. Throttled 30/min. Returns a small static HTML page.
+
+**Customer** (`auth:sanctum`, tenant resolved from the branch, `X-App-Brand` enforced like the service catalog): `GET /branches/{branch}/gallery?category=&page=&per_page=` (default 12, max 50) returns only active items that are salon-wide or belong to the branch. Item: `id`, `media_type`, `category`, `category_label`, `caption`, `branch_id`, `service` (`{id,name,branch_id}` or `null` if inactive), `instagram_url`, `has_native_video`, `video_url` (hosted videos only, otherwise `null`), `thumbnail_url`, `playback` (`native` \| `instagram` \| `none`), `sort_order`, `posted_at`. Only `playback: native` items may show a play control.
