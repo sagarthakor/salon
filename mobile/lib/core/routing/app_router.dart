@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Center, Scaffold, Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,12 +19,16 @@ import '../../features/booking/presentation/screens/booking_service_selection_sc
 import '../../features/booking/presentation/screens/booking_summary_screen.dart';
 import '../../features/booking/presentation/screens/reschedule_screen.dart';
 import '../../features/booking/presentation/screens/salon_branch_selection_screen.dart';
+import '../../features/gallery/presentation/screens/gallery_viewer_screen.dart';
+import '../../features/gallery/presentation/screens/hair_inspiration_screen.dart';
 import '../../features/home/presentation/screens/home_shell.dart';
 import '../../features/loyalty/presentation/screens/loyalty_screen.dart';
 import '../../features/membership/presentation/screens/membership_checkout_screen.dart';
 import '../../features/membership/presentation/screens/membership_screen.dart';
 import '../../features/notifications/presentation/screens/notification_list_screen.dart';
 import '../../features/notifications/presentation/screens/notification_preferences_screen.dart';
+import '../../features/owner/gallery/presentation/screens/gallery_item_form_screen.dart';
+import '../../features/owner/gallery/presentation/screens/owner_gallery_screen.dart';
 import '../../features/owner/notifications/presentation/screens/tenant_notification_settings_screen.dart';
 import '../../features/owner/reports/presentation/screens/branch_report_screen.dart';
 import '../../features/owner/reports/presentation/screens/booking_report_screen.dart';
@@ -97,6 +102,7 @@ bool _isStaffRoute(String location) => location.startsWith('/staff');
 bool _isCustomerOnlyRoute(String location) =>
     location == '/home' ||
     location.startsWith('/salons/') ||
+    location.startsWith('/gallery') ||
     location.startsWith('/booking/') ||
     location.startsWith('/bookings/') ||
     location == '/profile/edit' ||
@@ -166,6 +172,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           salonId: state.pathParameters['salonId']!,
           salonName: state.uri.queryParameters['name'],
         ),
+      ),
+      // Hair Inspiration / "Our Work" gallery (customer-facing).
+      GoRoute(
+        path: '/salons/:salonId/gallery',
+        builder: (context, state) => HairInspirationScreen(
+          salonId: state.pathParameters['salonId']!,
+          salonName: state.uri.queryParameters['name'],
+        ),
+      ),
+      GoRoute(
+        path: '/gallery/viewer',
+        builder: (context, state) {
+          final args = state.extra;
+          // Reached only from the gallery grid; a cold deep link has no item.
+          if (args is! GalleryViewerArgs) return const Scaffold(body: Center(child: Text('Nothing to show.')));
+          return GalleryViewerScreen(item: args.item, branch: args.branch);
+        },
       ),
       GoRoute(path: '/booking/audience', builder: (context, state) => const AudienceSelectionScreen()),
       GoRoute(path: '/booking/services', builder: (context, state) => const BookingServiceSelectionScreen()),
@@ -278,6 +301,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/owner/branches/:id/holidays',
         builder: (context, state) => BranchHolidaysScreen(branchId: state.pathParameters['id']!),
+      ),
+
+      GoRoute(path: '/owner/gallery', builder: (context, state) => const OwnerGalleryScreen()),
+      GoRoute(path: '/owner/gallery/new', builder: (context, state) => const GalleryItemFormScreen()),
+      GoRoute(
+        path: '/owner/gallery/:id/edit',
+        builder: (context, state) => GalleryItemFormScreen(itemId: state.pathParameters['id']!),
       ),
 
       GoRoute(path: '/owner/salon', builder: (context, state) => const SalonProfileScreen()),

@@ -9,7 +9,9 @@ import 'package:salon_customer/features/owner/dashboard/data/repositories/dashbo
 import 'package:salon_customer/features/owner/salon/data/repositories/owner_salon_repository.dart';
 import 'package:salon_customer/features/owner/services/data/repositories/owner_service_repository.dart';
 import 'package:salon_customer/features/owner/staff/data/repositories/staff_repository.dart';
+import 'package:salon_customer/features/gallery/data/repositories/gallery_repository.dart';
 import 'package:salon_customer/features/notifications/data/repositories/notification_repository.dart';
+import 'package:salon_customer/features/owner/gallery/data/repositories/owner_gallery_repository.dart';
 import 'package:salon_customer/features/profile/data/repositories/profile_repository.dart';
 import 'package:salon_customer/features/salon/data/repositories/salon_repository.dart';
 import 'package:salon_customer/features/services/data/repositories/service_repository.dart';
@@ -61,3 +63,9 @@ class MockSubscriptionRepository extends Mock implements SubscriptionRepository 
 // --- Notifications (Phase 11) ---
 
 class MockNotificationRepository extends Mock implements NotificationRepository {}
+
+// --- Hair Inspiration gallery ---
+
+class MockGalleryRepository extends Mock implements GalleryRepository {}
+
+class MockOwnerGalleryRepository extends Mock implements OwnerGalleryRepository {}

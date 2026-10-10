@@ -27,6 +27,7 @@ class MoreTab extends ConsumerWidget {
           ),
           _MenuTile(icon: Icons.tune, title: 'Notification settings', onTap: () => context.push('/owner/notification-settings')),
           _MenuTile(icon: Icons.content_cut, title: 'Services', onTap: () => context.push('/owner/services')),
+          _MenuTile(icon: Icons.video_library_outlined, title: 'Hair inspiration gallery', onTap: () => context.push('/owner/gallery')),
           _MenuTile(icon: Icons.category_outlined, title: 'Categories', onTap: () => context.push('/owner/categories')),
           _MenuTile(icon: Icons.storefront, title: 'Branches', onTap: () => context.push('/owner/branches')),
           _MenuTile(icon: Icons.business, title: 'Salon profile', onTap: () => context.push('/owner/salon')),

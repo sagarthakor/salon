@@ -150,6 +150,24 @@ class _SalonCard extends StatelessWidget {
                   ],
                 ),
               ],
+              const SizedBox(height: 4),
+              InkWell(
+                key: Key('our-work-${salon.id}'),
+                onTap: () => context.push(
+                  Uri(path: '/salons/${salon.id}/gallery', queryParameters: {'name': salon.name}).toString(),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.video_library_outlined, size: 18, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Our Work',
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
               if (salon.instagramUrl != null) ...[
                 const SizedBox(height: 4),
                 InkWell(

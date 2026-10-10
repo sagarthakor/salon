@@ -264,3 +264,13 @@ Real-device QA found the Phase 7 `GET /customer/salons` endpoint above is member
 ## Booking flow ordering vs. the spec diagram
 
 Phase 7's flow diagram lists `Select Staff → Select Date → Fetch Availability`. In the real backend contract, staff *names* are only ever returned as part of an availability response (the `staff` field above) — there is no "list staff capable of these services" endpoint independent of a date, because staff eligibility inherently depends on that day's working hours/breaks/leave. The app therefore fetches availability first (staff mode defaulting to "any available"), then lets the customer optionally narrow to a specific staff member from the names that came back, which re-fetches availability filtered to that person. This is functionally equivalent — every requirement (staff preference, date selection, real availability, slot selection) is met — just reordered to match what the backend can actually answer, rather than inventing a staff-roster endpoint that doesn't exist.
+
+## Hair Inspiration gallery (Flutter integration)
+
+Backend contract: `API_DOCUMENTATION.md`, "Hair Inspiration gallery & Instagram connection"; design: `SALON_MEDIA_ARCHITECTURE.md`.
+
+- **Customer:** `GET /branches/{branch}/gallery` via `GalleryRepository`; paging follows the app-wide convention (a full page of `per_page` means there may be more). Route `/salons/:salonId/gallery` (grid) → `/gallery/viewer` (item passed as `extra`). Only items with `playback == native` and a `video_url` are playable; `instagram` items show the thumbnail plus a "View on Instagram" link-out and never a play control. `video_url` / `thumbnail_url` are plain public URLs (`Storage::disk('public')->url(...)`, no auth header) — the same mechanism as service images, so production needs a correct `APP_URL` and `php artisan storage:link`. "Book This Style" re-checks `service.id` against `GET /branches/{branch}/services` before preloading the booking flow.
+- **Owner:** More → "Hair inspiration gallery" (`/owner/gallery`, `/owner/gallery/new`, `/owner/gallery/:id/edit`) via `OwnerGalleryRepository`: `/salon-media*` and `/instagram/*`. Multipart booleans are sent as `1`/`0`; updates with a file use `POST` + `_method=PUT`. Connecting opens `authorization_url` in the external browser; the app re-reads `GET /instagram/connection` when the owner returns.
+- **Dependency:** `video_player` (one controller, owned by the viewer, disposed with it).
+- The Instagram access token is never sent to the app and no client code handles one.
+
