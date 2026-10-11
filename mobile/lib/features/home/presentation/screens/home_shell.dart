@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/brand/brand_config.dart';
 import '../../../booking/presentation/screens/my_bookings_screen.dart';
 import '../../../profile/presentation/screens/profile_screen.dart';
+import 'branded_home_tab.dart';
 import 'home_tab.dart';
 
 /// Persistent bottom-navigation shell for the three authenticated tabs.
@@ -18,7 +20,15 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _tabs = [HomeTab(), MyBookingsScreen(), ProfileScreen()];
+  // A branded single-salon app (see BrandConfig) has no discovery/search UI
+  // — BrandedHomeTab replaces HomeTab's salon list with the fixed salon and
+  // a direct "Book Now" entry point. The other two tabs are unchanged and
+  // fully reused.
+  static final List<Widget> _tabs = [
+    BrandConfig.current.singleSalon ? const BrandedHomeTab() : const HomeTab(),
+    const MyBookingsScreen(),
+    const ProfileScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {

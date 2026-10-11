@@ -115,6 +115,40 @@ class SalonMediaApiTest extends TestCase
         $this->assertSame(0, $created->json('data.sort_order'));
     }
 
+    public function test_owner_uploads_a_photo_which_customers_see_as_an_image(): void
+    {
+        $f = $this->fixture('a');
+        $response = $this->owner($f)->post('/api/v1/salon-media', [
+            'image' => UploadedFile::fake()->image('look.jpg', 800, 800),
+            'caption' => 'Balayage', 'category' => 'hair_colour', 'service_id' => $f['service']->id,
+        ])->assertCreated()->assertJsonPath('data.media_type', 'photo')->assertJsonPath('data.playback', 'image')->assertJsonPath('data.has_native_video', false);
+        $media = SalonMedia::withoutGlobalScope('tenant')->findOrFail($response->json('data.id'));
+        $this->assertStringStartsWith("salon-media/{$f['tenant']->id}/images/", $media->thumbnail_path);
+        Storage::disk('public')->assertExists($media->thumbnail_path);
+        $this->assertSame($response->json('data.thumbnail_url'), $response->json('data.image_url'));
+
+        $customer = User::factory()->create(['role' => UserRole::CUSTOMER]);
+        $this->actingAs($customer, 'sanctum')->getJson("/api/v1/branches/{$f['branch']->id}/gallery")->assertOk()
+            ->assertJsonPath('data.0.playback', 'image')->assertJsonPath('data.0.service.id', $f['service']->id);
+
+        // A photo stays valid with no video/link, and can have its image replaced; deleting removes the file.
+        $this->owner($f)->post("/api/v1/salon-media/{$media->id}", ['_method' => 'PUT', 'image' => UploadedFile::fake()->image('new.png', 600, 600)])->assertOk();
+        Storage::disk('public')->assertMissing($media->thumbnail_path);
+        $replaced = $media->fresh()->thumbnail_path;
+        Storage::disk('public')->assertExists($replaced);
+        $this->owner($f)->deleteJson("/api/v1/salon-media/{$media->id}")->assertOk();
+        Storage::disk('public')->assertMissing($replaced);
+    }
+
+    public function test_photo_upload_validates_type_and_rejects_photo_plus_video(): void
+    {
+        $f = $this->fixture('a');
+        $this->owner($f)->post('/api/v1/salon-media', ['image' => UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')], ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('image');
+        $this->owner($f)->post('/api/v1/salon-media', [
+            'image' => UploadedFile::fake()->image('a.jpg'), 'video' => UploadedFile::fake()->create('c.mp4', 100, 'video/mp4'),
+        ], ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('image');
+    }
+
     public function test_creating_requires_a_video_or_an_instagram_link(): void
     {
         $f = $this->fixture('a');

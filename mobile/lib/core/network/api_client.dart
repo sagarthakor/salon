@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../brand/brand_config.dart';
 import '../config/app_config.dart';
 import '../storage/secure_storage.dart';
 import 'api_exception.dart';
@@ -39,6 +40,10 @@ class ApiClient {
           }
           if (tenantSlug != null) {
             options.headers['X-Tenant-Slug'] = tenantSlug;
+          }
+          final brandHeader = BrandConfig.current.brandHeaderValue;
+          if (brandHeader != null) {
+            options.headers['X-App-Brand'] = brandHeader;
           }
           handler.next(options);
         },

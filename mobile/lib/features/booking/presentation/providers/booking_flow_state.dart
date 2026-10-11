@@ -3,6 +3,7 @@ import '../../../services/data/models/salon_service.dart';
 import '../../data/models/availability.dart';
 import '../../data/models/booking.dart';
 import '../../data/models/booking_pricing.dart';
+import '../../data/models/booking_style.dart';
 
 /// Whether the customer wants a specific staff member or lets the backend
 /// assign automatically. Never resolved client-side — see BookingRepository.
@@ -23,6 +24,7 @@ class BookingFlowState {
     this.isLoadingAvailability = false,
     this.availabilityError,
     this.selectedSlot,
+    this.style,
     this.notes = '',
     this.couponCode = '',
     this.loyaltyPointsToRedeem,
@@ -45,6 +47,8 @@ class BookingFlowState {
   final bool isLoadingAvailability;
   final String? availabilityError;
   final AvailabilitySlot? selectedSlot;
+  /// Gallery item chosen via "Book This Style"; sent with the booking.
+  final BookingStyle? style;
   final String notes;
   final String couponCode;
   final int? loyaltyPointsToRedeem;
@@ -92,6 +96,8 @@ class BookingFlowState {
     bool clearAvailabilityError = false,
     AvailabilitySlot? selectedSlot,
     bool clearSelectedSlot = false,
+    BookingStyle? style,
+    bool clearStyle = false,
     String? notes,
     String? couponCode,
     int? loyaltyPointsToRedeem,
@@ -118,6 +124,7 @@ class BookingFlowState {
       isLoadingAvailability: isLoadingAvailability ?? this.isLoadingAvailability,
       availabilityError: clearAvailabilityError ? null : (availabilityError ?? this.availabilityError),
       selectedSlot: clearSelectedSlot ? null : (selectedSlot ?? this.selectedSlot),
+      style: clearStyle ? null : (style ?? this.style),
       notes: notes ?? this.notes,
       couponCode: couponCode ?? this.couponCode,
       loyaltyPointsToRedeem: clearLoyaltyPointsToRedeem ? null : (loyaltyPointsToRedeem ?? this.loyaltyPointsToRedeem),

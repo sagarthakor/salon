@@ -23,6 +23,7 @@ class OwnerGalleryRepository {
   /// Creates an item from an uploaded original video and/or an Instagram link.
   Future<GalleryItem> create({
     String? videoPath,
+    String? imagePath,
     String? thumbnailPath,
     String? instagramUrl,
     String? caption,
@@ -32,6 +33,7 @@ class OwnerGalleryRepository {
   }) async {
     final data = await _client.postMultipart<Map<String, dynamic>>('/salon-media', {
       if (videoPath != null) 'video': await MultipartFile.fromFile(videoPath),
+      if (imagePath != null) 'image': await MultipartFile.fromFile(imagePath),
       if (thumbnailPath != null) 'thumbnail': await MultipartFile.fromFile(thumbnailPath),
       if (instagramUrl != null && instagramUrl.isNotEmpty) 'instagram_url': instagramUrl,
       if (caption != null && caption.isNotEmpty) 'caption': caption,

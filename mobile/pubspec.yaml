@@ -68,6 +68,12 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Bundled logo for the Nil Hair Port Unisex branded flavor (see
+  # lib/core/brand/brand_config.dart). Not referenced by the standard
+  # multi-tenant app.
+  assets:
+    - assets/brand/nil_hair_port/logo.png
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

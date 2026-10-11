@@ -14,7 +14,7 @@ class Booking extends Model
     use BelongsToTenant, HasUlids;
 
     protected $fillable = [
-        'branch_id', 'customer_id', 'booking_date', 'start_time', 'end_time', 'status',
+        'branch_id', 'customer_id', 'salon_media_id', 'style_label', 'booking_date', 'start_time', 'end_time', 'status',
         'subtotal', 'discount', 'tax', 'total', 'notes', 'cancellation_reason',
         'cancelled_at', 'cancelled_by', 'created_by',
         // Phase 12 pricing breakdown/snapshot — see BookingPricingService and
@@ -52,6 +52,12 @@ class Booking extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /** The gallery item ("Book This Style") that inspired this booking, if any. */
+    public function styleMedia(): BelongsTo
+    {
+        return $this->belongsTo(SalonMedia::class, 'salon_media_id');
     }
 
     public function customer(): BelongsTo

@@ -7,6 +7,7 @@ return [
 
     'max_video_kb' => (int) env('SALON_MEDIA_MAX_VIDEO_KB', 51200),
     'max_thumbnail_kb' => 5120,
+    'max_image_kb' => (int) env('SALON_MEDIA_MAX_IMAGE_KB', 10240),
 
     // Hard cap on Instagram pages fetched per sync (50 items/page).
     'instagram_sync_max_pages' => (int) env('INSTAGRAM_SYNC_MAX_PAGES', 10),

@@ -24,7 +24,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(MasterCatalogSeeder::class);
+        $this->call(MasterDataSeeder::class);
 
         User::query()->firstOrCreate(['email' => 'admin@example.test'], ['name' => 'Local Super Admin', 'password' => 'ChangeMe123!', 'role' => UserRole::SUPER_ADMIN]);
         $owner = User::query()->firstOrCreate(['email' => 'owner@example.test'], ['name' => 'Demo Salon Owner', 'password' => 'ChangeMe123!', 'role' => UserRole::SALON_OWNER]);
@@ -102,5 +102,8 @@ class DatabaseSeeder extends Seeder
         } finally {
             app(TenantContext::class)->clear();
         }
+
+        // Demo salon + branch + catalog + bookable defaults (idempotent; skipped in production).
+        $this->call(DemoSalonSeeder::class);
     }
 }

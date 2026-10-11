@@ -7,12 +7,16 @@ enum GalleryPlayback {
   /// Instagram-only: show the thumbnail with a "View on Instagram" link-out.
   instagram,
 
+  /// An owner-uploaded photo: shown full-size in the viewer.
+  image,
+
   /// Neither a hosted video nor a link — nothing to open.
   none;
 
   static GalleryPlayback parse(String? value) => switch (value) {
     'native' => GalleryPlayback.native,
     'instagram' => GalleryPlayback.instagram,
+    'image' => GalleryPlayback.image,
     _ => GalleryPlayback.none,
   };
 }
@@ -54,6 +58,7 @@ class GalleryItem {
     required this.hasNativeVideo,
     this.videoUrl,
     this.thumbnailUrl,
+    this.imageUrl,
     required this.playback,
     this.sortOrder = 0,
     this.source = 'instagram',
@@ -74,6 +79,7 @@ class GalleryItem {
     hasNativeVideo: json['has_native_video'] as bool? ?? false,
     videoUrl: json['video_url'] as String?,
     thumbnailUrl: json['thumbnail_url'] as String?,
+    imageUrl: json['image_url'] as String?,
     playback: GalleryPlayback.parse(json['playback'] as String?),
     sortOrder: json['sort_order'] as int? ?? 0,
     source: json['source'] as String? ?? 'instagram',
@@ -91,10 +97,13 @@ class GalleryItem {
   final bool hasNativeVideo;
   final String? videoUrl;
   final String? thumbnailUrl;
+  final String? imageUrl;
   final GalleryPlayback playback;
   final int sortOrder;
   final String source;
   final bool isActive;
+
+  bool get isPhoto => playback == GalleryPlayback.image;
 
   /// True only when the in-app player can actually play this item.
   bool get isPlayable => playback == GalleryPlayback.native && videoUrl != null;

@@ -27,14 +27,18 @@ class BookingCartScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Your Cart')),
       body: services.isEmpty
           ? const _EmptyCart()
-          : ListView.separated(
+          : ListView(
               padding: const EdgeInsets.all(AppSpacing.md),
-              itemCount: services.length,
-              separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-              itemBuilder: (context, index) => _CartRow(
-                service: services[index],
-                onRemove: () => controller.toggleService(services[index]),
-              ),
+              children: [
+                if (flowState.style != null) ...[
+                  SelectedStyleBanner(style: flowState.style!, onRemove: controller.clearStyle),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                for (final service in services) ...[
+                  _CartRow(service: service, onRemove: () => controller.toggleService(service)),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+              ],
             ),
       bottomNavigationBar: BookingFlowBottomBar(
         summaryLabel: services.isEmpty

@@ -14,7 +14,8 @@ class SalonMediaResource extends JsonResource
     {
         $disk = Storage::disk(SalonMedia::disk());
         $native = $this->hasNativeVideo();
-        $thumbnail = $this->thumbnail_path !== null ? $disk->url($this->thumbnail_path) : $this->instagram_thumbnail_url;
+        $thumbnail = $this->thumbnailUrl();
+        $photo = $this->isPhoto();
         $service = $this->relationLoaded('service') ? $this->service : null;
         if ($service !== null && $service->status->value !== 'active') {
             $service = null;
@@ -35,7 +36,9 @@ class SalonMediaResource extends JsonResource
             'thumbnail_url' => $thumbnail,
             // How the app should present this item: native player, Instagram
             // link-out, or neither (no fake play button).
-            'playback' => $native ? 'native' : ($this->instagram_url !== null ? 'instagram' : 'none'),
+            'playback' => $photo ? 'image' : ($native ? 'native' : ($this->instagram_url !== null ? 'instagram' : 'none')),
+            // Photos: the full-size image to show in the viewer (same file as the thumbnail).
+            'image_url' => $photo ? $thumbnail : null,
             'sort_order' => $this->sort_order,
             'posted_at' => $this->instagram_posted_at?->toIso8601String(),
         ];

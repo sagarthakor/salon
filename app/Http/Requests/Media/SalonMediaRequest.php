@@ -51,6 +51,7 @@ class SalonMediaRequest extends FormRequest
                 }
             }],
             'video' => [$presence, 'file', 'mimes:mp4,mov', 'mimetypes:video/mp4,video/quicktime', 'max:'.config('salon_media.max_video_kb')],
+            'image' => [$presence, 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('salon_media.max_image_kb')],
             'thumbnail' => [$presence, 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.config('salon_media.max_thumbnail_kb')],
             'remove_video' => ['sometimes', 'boolean'],
             'remove_thumbnail' => ['sometimes', 'boolean'],
@@ -60,8 +61,11 @@ class SalonMediaRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
-            if ($this->isCreate() && ! $this->hasFile('video') && ! $this->filled('instagram_url')) {
-                $validator->errors()->add('video', 'Upload a video or provide an Instagram link.');
+            if ($this->isCreate() && ! $this->hasFile('video') && ! $this->hasFile('image') && ! $this->filled('instagram_url')) {
+                $validator->errors()->add('video', 'Upload a photo or video, or provide an Instagram link.');
+            }
+            if ($this->hasFile('image') && $this->hasFile('video')) {
+                $validator->errors()->add('image', 'Add either a photo or a video, not both.');
             }
             if ($this->filled('service_id') && $this->filled('branch_id')) {
                 $service = Service::query()->find($this->input('service_id'));

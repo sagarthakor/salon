@@ -30,6 +30,14 @@ class BookingResource extends JsonResource
             'loyalty_points_redeemed' => $this->loyalty_points_redeemed,
             'loyalty_discount' => $this->loyalty_discount,
             'loyalty_points_earned' => $this->loyalty_points_earned,
+            // "Book This Style": the gallery item that inspired this booking. `label` is a
+            // snapshot; `thumbnail_url` is present only while the item still exists.
+            'style' => $this->salon_media_id === null && $this->style_label === null ? null : [
+                'id' => $this->salon_media_id,
+                'label' => $this->style_label,
+                'category_label' => $this->relationLoaded('styleMedia') ? $this->styleMedia?->category?->label() : null,
+                'thumbnail_url' => $this->relationLoaded('styleMedia') ? $this->styleMedia?->thumbnailUrl() : null,
+            ],
             'notes' => $this->notes,
             'cancellation_reason' => $this->cancellation_reason,
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),

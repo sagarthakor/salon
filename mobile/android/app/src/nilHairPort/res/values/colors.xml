@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Adaptive-icon background fill for the Nil Hair Port flavor only —
+         matches BrandConfig.nilHairPort.primaryColor (../../../../../lib/core/brand/brand_config.dart).
+         The `standard` flavor has no such resource and is unaffected. -->
+    <color name="ic_launcher_background">#6B2E4B</color>
+</resources>

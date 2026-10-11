@@ -1,5 +1,6 @@
 import '../../../profile/data/models/customer_profile.dart';
 import 'booking_item.dart';
+import 'booking_style.dart';
 import 'booking_status.dart';
 import 'booking_status_history_entry.dart';
 
@@ -27,6 +28,7 @@ class Booking {
     this.loyaltyDiscount = 0,
     this.loyaltyPointsEarned = 0,
     this.notes,
+    this.style,
     this.cancellationReason,
     this.cancelledAt,
     this.items = const [],
@@ -54,6 +56,7 @@ class Booking {
     loyaltyDiscount: num.parse((json['loyalty_discount'] ?? 0).toString()),
     loyaltyPointsEarned: json['loyalty_points_earned'] as int? ?? 0,
     notes: json['notes'] as String?,
+    style: json['style'] is Map<String, dynamic> ? BookingStyle.fromJson(json['style'] as Map<String, dynamic>) : null,
     cancellationReason: json['cancellation_reason'] as String?,
     cancelledAt: json['cancelled_at'] as String?,
     items: json['items'] is List
@@ -84,6 +87,9 @@ class Booking {
   final num loyaltyDiscount;
   final int loyaltyPointsEarned;
   final String? notes;
+
+  /// The gallery style the customer chose via "Book This Style", if any.
+  final BookingStyle? style;
   final String? cancellationReason;
   final String? cancelledAt;
   final List<BookingItem> items;

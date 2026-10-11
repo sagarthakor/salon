@@ -101,7 +101,7 @@ class BookingController extends TenantManagementController
     {
         $this->viewableTenant();
 
-        return ApiResponse::success(new BookingResource($this->booking($booking)->load(['items.staff', 'items.service', 'customer', 'statusHistories'])), 'Booking retrieved.');
+        return ApiResponse::success(new BookingResource($this->booking($booking)->load(['items.staff', 'items.service', 'customer', 'statusHistories', 'styleMedia'])), 'Booking retrieved.');
     }
 
     public function update(BookingUpdateRequest $request, string $booking): JsonResponse

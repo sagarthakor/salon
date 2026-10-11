@@ -27,6 +27,10 @@ class BookingScheduleScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
+          if (flowState.style != null) ...[
+            SelectedStyleBanner(style: flowState.style!),
+            const SizedBox(height: AppSpacing.md),
+          ],
           Text('Date', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
           _DateStrip(selected: flowState.date, onSelected: controller.setDate),

@@ -45,6 +45,7 @@ class _BookingSummaryScreenState extends ConsumerState<BookingSummaryScreen> {
         padding: const EdgeInsets.all(AppSpacing.md),
         children: [
           if (flowState.submissionError != null) _ErrorBanner(message: flowState.submissionError!),
+          if (flowState.style != null) SelectedStyleBanner(style: flowState.style!, onRemove: controller.clearStyle),
           _SummaryCard(flowState: flowState),
           if (flowState.requiresPhone) ...[
             const SizedBox(height: AppSpacing.md),

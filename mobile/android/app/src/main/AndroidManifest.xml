@@ -2,7 +2,7 @@
     <!-- Required at runtime in every build variant so the app can call the API. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="salon_customer"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

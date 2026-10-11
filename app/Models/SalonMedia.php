@@ -68,6 +68,17 @@ class SalonMedia extends Model
         }
     }
 
+    public function isPhoto(): bool
+    {
+        return $this->media_type === 'photo';
+    }
+
+    /** Hosted thumbnail (or the photo itself), else Instagram's expiring CDN thumbnail. */
+    public function thumbnailUrl(): ?string
+    {
+        return $this->thumbnail_path !== null ? Storage::disk(self::disk())->url($this->thumbnail_path) : $this->instagram_thumbnail_url;
+    }
+
     public function hasNativeVideo(): bool
     {
         return $this->video_path !== null;

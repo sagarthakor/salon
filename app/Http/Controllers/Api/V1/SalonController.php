@@ -10,6 +10,7 @@ use App\Http\Resources\SalonSettingsResource;
 use App\Models\Branch;
 use App\Models\Salon;
 use App\Models\SalonSetting;
+use App\Services\Catalog\BranchDefaultsService;
 use App\Services\Catalog\CatalogProvisioningService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -43,7 +44,7 @@ class SalonController extends TenantManagementController
      * again for this tenant, per `CatalogProvisioningService`'s own
      * idempotency guard.
      */
-    public function store(SalonRequest $request, CatalogProvisioningService $provisioning): JsonResponse
+    public function store(SalonRequest $request, CatalogProvisioningService $provisioning, BranchDefaultsService $defaults): JsonResponse
     {
         $tenant = $this->managedTenant();
         if ($tenant->salon()->exists()) {
@@ -53,7 +54,7 @@ class SalonController extends TenantManagementController
         $data['slug'] ??= Str::slug($data['name']);
         $data['status'] ??= BusinessStatus::ACTIVE;
 
-        $salon = DB::transaction(function () use ($data, $provisioning): Salon {
+        $salon = DB::transaction(function () use ($data, $provisioning, $defaults): Salon {
             // `->fresh()` matters here, not just style: `timezone` (and any
             // other column relying on its DB-level default, e.g. when the
             // owner didn't fill it in) is only actually populated by SQL's
@@ -64,6 +65,7 @@ class SalonController extends TenantManagementController
             $salon = Salon::query()->create($data)->fresh();
             $branch = $this->defaultBranchFor($salon);
             $provisioning->provisionForBranch($branch);
+            $defaults->apply($branch);
 
             return $salon;
         });

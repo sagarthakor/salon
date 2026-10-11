@@ -35,7 +35,7 @@ class GalleryItemFormScreen extends ConsumerWidget {
   }
 }
 
-enum _AddMode { upload, instagram }
+enum _AddMode { photo, upload, instagram }
 
 class _GalleryItemForm extends ConsumerStatefulWidget {
   const _GalleryItemForm({this.itemId, this.existing});
@@ -50,11 +50,12 @@ class _GalleryItemForm extends ConsumerStatefulWidget {
 class _GalleryItemFormState extends ConsumerState<_GalleryItemForm> {
   late final _captionController = TextEditingController(text: widget.existing?.caption);
   late final _instagramController = TextEditingController(text: widget.existing?.instagramUrl);
-  _AddMode _mode = _AddMode.upload;
+  _AddMode _mode = _AddMode.photo;
   String? _category;
   String? _serviceId;
   bool _isActive = true;
   String? _videoPath;
+  String? _photoPath;
   String? _thumbnailPath;
   bool _removeVideo = false;
   bool _removeThumbnail = false;
@@ -92,6 +93,11 @@ class _GalleryItemFormState extends ConsumerState<_GalleryItemForm> {
     }
   }
 
+  Future<void> _pickPhoto() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 2048);
+    if (picked != null) setState(() => _photoPath = picked.path);
+  }
+
   Future<void> _pickThumbnail() async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1080);
     if (picked != null) {
@@ -105,6 +111,10 @@ class _GalleryItemFormState extends ConsumerState<_GalleryItemForm> {
   Future<void> _submit() async {
     final instagramUrl = _instagramController.text.trim();
     final needsInstagram = !_isEdit && _mode == _AddMode.instagram;
+    if (!_isEdit && _mode == _AddMode.photo && _photoPath == null) {
+      setState(() => _errorMessage = 'Choose a photo to upload.');
+      return;
+    }
     if (!_isEdit && _mode == _AddMode.upload && _videoPath == null) {
       setState(() => _errorMessage = 'Choose a video to upload.');
       return;
@@ -138,6 +148,7 @@ class _GalleryItemFormState extends ConsumerState<_GalleryItemForm> {
       } else {
         await repository.create(
           videoPath: _mode == _AddMode.upload ? _videoPath : null,
+          imagePath: _mode == _AddMode.photo ? _photoPath : null,
           thumbnailPath: _thumbnailPath,
           instagramUrl: _mode == _AddMode.instagram ? instagramUrl : (instagramUrl.isEmpty ? null : instagramUrl),
           caption: _captionController.text.trim(),
@@ -171,7 +182,8 @@ class _GalleryItemFormState extends ConsumerState<_GalleryItemForm> {
         if (!_isEdit) ...[
           SegmentedButton<_AddMode>(
             segments: const [
-              ButtonSegment(value: _AddMode.upload, icon: Icon(Icons.upload_file), label: Text('Upload video')),
+              ButtonSegment(value: _AddMode.photo, icon: Icon(Icons.photo_outlined), label: Text('Photo')),
+              ButtonSegment(value: _AddMode.upload, icon: Icon(Icons.upload_file), label: Text('Video')),
               ButtonSegment(value: _AddMode.instagram, icon: Icon(Icons.link), label: Text('Instagram link')),
             ],
             selected: {_mode},
@@ -180,12 +192,22 @@ class _GalleryItemFormState extends ConsumerState<_GalleryItemForm> {
           const SizedBox(height: AppSpacing.md),
         ] else ...[
           Text(
-            hasHostedVideo ? 'This item has a hosted video and plays inside the app.' : 'Instagram only: customers see the thumbnail and a "View on Instagram" link. Upload the original video to play it in the app.',
+            (existing?.isPhoto ?? false) ? 'This is a photo. Customers can view it full-screen and book the linked service.' : hasHostedVideo ? 'This item has a hosted video and plays inside the app.' : 'Instagram only: customers see the thumbnail and a "View on Instagram" link. Upload the original video to play it in the app.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: AppSpacing.md),
         ],
-        if (_isEdit || _mode == _AddMode.upload) ...[
+        if (!_isEdit && _mode == _AddMode.photo) ...[
+          OutlinedButton.icon(
+            key: const Key('gallery-pick-photo'),
+            onPressed: _isSubmitting ? null : _pickPhoto,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: Text(_photoPath != null ? 'Photo selected: ${_photoPath!.split(Platform.pathSeparator).last}' : 'Choose photo (JPG, PNG or WebP)'),
+          ),
+          if (_fieldError('image') != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_fieldError('image')!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        if ((_isEdit && !(existing?.isPhoto ?? false)) || (!_isEdit && _mode == _AddMode.upload)) ...[
           OutlinedButton.icon(
             key: const Key('gallery-pick-video'),
             onPressed: _isSubmitting ? null : _pickVideo,
@@ -205,12 +227,12 @@ class _GalleryItemFormState extends ConsumerState<_GalleryItemForm> {
           ),
           const SizedBox(height: AppSpacing.md),
         ],
-        OutlinedButton.icon(
+        if (!(existing?.isPhoto ?? false) && !(!_isEdit && _mode == _AddMode.photo)) OutlinedButton.icon(
           onPressed: _isSubmitting ? null : _pickThumbnail,
           icon: const Icon(Icons.image_outlined),
           label: Text(_thumbnailPath != null ? 'Thumbnail selected' : 'Choose thumbnail (optional)'),
         ),
-        if (_fieldError('thumbnail') != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_fieldError('thumbnail')!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        if (_fieldError('thumbnail') != null && !(existing?.isPhoto ?? false)) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_fieldError('thumbnail')!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
         const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _captionController,
@@ -253,7 +275,7 @@ class _GalleryItemFormState extends ConsumerState<_GalleryItemForm> {
           Text(_errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ],
         const SizedBox(height: AppSpacing.md),
-        if (_isSubmitting && (_videoPath != null)) const Padding(padding: EdgeInsets.only(bottom: AppSpacing.sm), child: Text('Uploading… keep the app open.')),
+        if (_isSubmitting && (_videoPath != null || _photoPath != null)) const Padding(padding: EdgeInsets.only(bottom: AppSpacing.sm), child: Text('Uploading… keep the app open.')),
         PrimaryButton(label: _isEdit ? 'Save changes' : 'Add to gallery', isLoading: _isSubmitting, onPressed: _submit),
       ],
     );

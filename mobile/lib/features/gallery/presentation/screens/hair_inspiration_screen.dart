@@ -197,15 +197,16 @@ class _GalleryTile extends StatelessWidget {
               GalleryThumbnail(url: item.thumbnailUrl),
               // Only a hosted video gets a play badge; an Instagram-only
               // item gets an Instagram badge instead, never a fake play.
-              Positioned(
-                right: 8,
-                top: 8,
-                child: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: Colors.black54,
-                  child: Icon(item.isPlayable ? Icons.play_arrow : Icons.open_in_new, size: 16, color: Colors.white),
+              if (!item.isPhoto)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Colors.black54,
+                    child: Icon(item.isPlayable ? Icons.play_arrow : Icons.open_in_new, size: 16, color: Colors.white),
+                  ),
                 ),
-              ),
               if (item.caption != null && item.caption!.isNotEmpty)
                 Positioned(
                   left: 0,

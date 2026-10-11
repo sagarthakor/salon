@@ -6,6 +6,7 @@ use App\Enums\BusinessStatus;
 use App\Http\Requests\Salon\BranchRequest;
 use App\Http\Resources\BranchResource;
 use App\Models\Branch;
+use App\Services\Catalog\BranchDefaultsService;
 use App\Services\Catalog\CatalogProvisioningService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +21,7 @@ class BranchController extends TenantManagementController
         return ApiResponse::success(BranchResource::collection(Branch::query()->orderBy('name')->get()), 'Branches retrieved.');
     }
 
-    public function store(BranchRequest $request, CatalogProvisioningService $provisioning): JsonResponse
+    public function store(BranchRequest $request, CatalogProvisioningService $provisioning, BranchDefaultsService $defaults): JsonResponse
     {
         $this->managedTenant();
         $data = $request->validated();
@@ -34,6 +35,8 @@ class BranchController extends TenantManagementController
         // A no-op for every branch after a tenant's first — see
         // CatalogProvisioningService's own idempotency guard.
         $provisioning->provisionForBranch($branch);
+        // Booking settings, weekly hours and a default stylist — only what is still missing.
+        $defaults->apply($branch);
 
         return ApiResponse::success(new BranchResource($branch), 'Branch created.', 201);
     }

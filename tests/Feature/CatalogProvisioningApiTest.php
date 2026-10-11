@@ -305,13 +305,13 @@ class CatalogProvisioningApiTest extends TestCase
         app(TenantContext::class)->set($tenant);
         $service = Service::query()->whereNotNull('master_service_id')->where('audience', ServiceAudience::MALE->value)->firstOrFail();
         foreach (range(0, 6) as $day) {
-            BranchWorkingHour::query()->create(['branch_id' => $branch->id, 'day_of_week' => $day, 'is_open' => true, 'opening_time' => '09:00', 'closing_time' => '20:00']);
+            BranchWorkingHour::query()->updateOrCreate(['branch_id' => $branch->id, 'day_of_week' => $day], ['is_open' => true, 'opening_time' => '09:00', 'closing_time' => '20:00']);
         }
         $staff = Staff::query()->create(['name' => 'Stylist', 'gender' => 'male', 'status' => BusinessStatus::ACTIVE]);
         $staff->branches()->sync([$branch->id => ['tenant_id' => $tenant->id]]);
         $staff->services()->sync([$service->id => ['tenant_id' => $tenant->id]]);
         foreach (range(0, 6) as $day) {
-            StaffWorkingHour::query()->create(['staff_id' => $staff->id, 'day_of_week' => $day, 'is_working' => true, 'start_time' => '09:00', 'end_time' => '20:00']);
+            StaffWorkingHour::query()->updateOrCreate(['staff_id' => $staff->id, 'day_of_week' => $day], ['is_working' => true, 'start_time' => '09:00', 'end_time' => '20:00']);
         }
         $customer = Customer::query()->create(['name' => 'Cust', 'phone' => '9000000001', 'normalized_phone' => '9000000001', 'status' => BusinessStatus::ACTIVE]);
         app(TenantContext::class)->clear();

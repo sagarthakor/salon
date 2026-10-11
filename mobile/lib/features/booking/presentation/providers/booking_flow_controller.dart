@@ -6,6 +6,7 @@ import '../../../salon/data/models/branch.dart';
 import '../../../services/data/models/salon_service.dart';
 import '../../data/models/availability.dart';
 import '../../data/models/booking_item_request.dart';
+import '../../data/models/booking_style.dart';
 import '../../data/repositories/booking_repository.dart';
 import 'booking_flow_state.dart';
 
@@ -37,6 +38,16 @@ class BookingFlowController extends StateNotifier<BookingFlowState> {
       clearSelectedSlot: true,
       clearSubmissionError: true,
     );
+  }
+
+  /// "Book This Style": keeps the chosen gallery item visible through the flow
+  /// and sends it with the booking. Call after [selectBranch], which resets state.
+  void setStyle(BookingStyle style) {
+    state = state.copyWith(style: style);
+  }
+
+  void clearStyle() {
+    state = state.copyWith(clearStyle: true);
   }
 
   void setStaffMode(StaffSelectionMode mode) {
@@ -143,14 +154,18 @@ class BookingFlowController extends StateNotifier<BookingFlowState> {
         couponCode: state.couponCode.trim().isEmpty ? null : state.couponCode.trim(),
         loyaltyPointsToRedeem: state.loyaltyPointsToRedeem,
         phone: state.phone.trim().isEmpty ? null : state.phone.trim(),
+        salonMediaId: state.style?.mediaId,
       );
       state = state.copyWith(isSubmitting: false, createdBooking: booking, requiresPhone: false);
       return true;
     } on ApiException catch (e) {
       final needsPhone = e.fieldErrors?.containsKey('phone') ?? false;
+      // The salon hid or removed the gallery item meanwhile: drop it so the
+      // customer can simply confirm again without the style.
+      final styleGone = e.fieldErrors?.containsKey('salon_media_id') ?? false;
       final message = e.type == ApiErrorType.conflict
           ? 'That slot is no longer available. Please select another time.'
-          : e.message;
+          : (styleGone ? 'That style is no longer available. You can still book the service — tap confirm again.' : e.message);
       // A slot conflict is the only failure that should clear the chosen
       // slot — a missing-phone (or any other) error must leave everything
       // else the customer picked untouched so they can just fill in the
@@ -160,6 +175,7 @@ class BookingFlowController extends StateNotifier<BookingFlowState> {
         submissionError: message,
         clearSelectedSlot: e.type == ApiErrorType.conflict,
         requiresPhone: needsPhone,
+        clearStyle: styleGone,
       );
       if (e.type == ApiErrorType.conflict) {
         await loadAvailability();

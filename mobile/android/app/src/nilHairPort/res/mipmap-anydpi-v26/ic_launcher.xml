@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon (API 26+) for the Nil Hair Port flavor only. Pre-26
+     devices fall back to the flat mipmap-*/ic_launcher.png in this same
+     source set. The `standard` flavor has no file at this path and keeps
+     using its existing flat icon on every API level, unchanged. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+</adaptive-icon>

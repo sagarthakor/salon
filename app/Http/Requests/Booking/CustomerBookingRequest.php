@@ -25,6 +25,7 @@ class CustomerBookingRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.service_id' => ['required', Rule::exists('services', 'id')->where('tenant_id', $tenantId)],
             'items.*.staff_id' => ['nullable', Rule::exists('staff_profiles', 'id')->where('tenant_id', $tenantId)],
+            'salon_media_id' => ['nullable', 'string', Rule::exists('salon_media', 'id')->where('tenant_id', $tenantId)],
             'notes' => ['nullable', 'string', 'max:2000'],
             'coupon_code' => ['nullable', 'string', 'max:32'],
             'loyalty_points_to_redeem' => ['nullable', 'integer', 'min:1'],

@@ -12,6 +12,7 @@ use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Models\Branch;
 use App\Models\Customer;
+use App\Models\SalonMedia;
 use App\Models\Service;
 use App\Services\Booking\BookingService;
 use App\Services\Booking\Exceptions\BookingUnavailableException;
@@ -48,11 +49,20 @@ class CustomerBookingController extends Controller
         $context->set($branch->tenant);
         try {
             $customer = $this->resolveOrCreateCustomer($request, $branch);
+            $style = null;
+            if ($request->filled('salon_media_id')) {
+                // Tenant-scoped lookup; only a visible item that is salon-wide or this branch's can be a style.
+                $style = SalonMedia::query()->whereKey($request->validated('salon_media_id'))->where('is_active', true)
+                    ->where(fn ($q) => $q->whereNull('branch_id')->orWhere('branch_id', $branch->id))->first();
+                if ($style === null) {
+                    return ApiResponse::error('The selected style is no longer available.', ['salon_media_id' => ['The selected style is no longer available.']], 422);
+                }
+            }
             $date = CarbonImmutable::createFromFormat('Y-m-d', $request->validated('date'), $branch->timezone ?: 'UTC')->startOfDay();
             $booking = $this->bookings->create(
                 $branch->tenant, $branch, $customer, $request->validated('items'), $date, $request->validated('start_time'),
                 $request->validated('notes'), $request->user(),
-                $request->validated('coupon_code'), $request->validated('loyalty_points_to_redeem'),
+                $request->validated('coupon_code'), $request->validated('loyalty_points_to_redeem'), $style,
             );
         } catch (BookingUnavailableException $e) {
             return ApiResponse::error($e->getMessage(), $e->errors(), 409);
@@ -93,7 +103,7 @@ class CustomerBookingController extends Controller
     {
         $model = $this->ownedBooking($request, $booking);
 
-        return $this->withTenantContext($model, fn (): JsonResponse => ApiResponse::success(new BookingResource($model->load(['items.staff', 'items.service', 'customer', 'statusHistories'])), 'Booking retrieved.'));
+        return $this->withTenantContext($model, fn (): JsonResponse => ApiResponse::success(new BookingResource($model->load(['items.staff', 'items.service', 'customer', 'statusHistories', 'styleMedia'])), 'Booking retrieved.'));
     }
 
     public function cancel(BookingCancelRequest $request, string $booking): JsonResponse

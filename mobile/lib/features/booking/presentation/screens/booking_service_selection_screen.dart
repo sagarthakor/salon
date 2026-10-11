@@ -87,15 +87,18 @@ class _BookingServiceSelectionScreenState extends ConsumerState<BookingServiceSe
           }
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.md),
-            children: branchServices.categories
-                .where((c) => branchServices.forCategory(c.id).isNotEmpty)
-                .map(
-                  (category) => _CategorySection(
-                    category: category,
-                    services: branchServices.forCategory(category.id),
+            children: [
+              if (flowState.style != null) SelectedStyleBanner(style: flowState.style!, onRemove: ref.read(bookingFlowControllerProvider.notifier).clearStyle),
+              if (flowState.style != null) const SizedBox(height: AppSpacing.md),
+              ...branchServices.categories
+                  .where((c) => branchServices.forCategory(c.id).isNotEmpty)
+                  .map(
+                    (category) => _CategorySection(
+                      category: category,
+                      services: branchServices.forCategory(category.id),
+                    ),
                   ),
-                )
-                .toList(),
+            ],
           );
         },
       ),

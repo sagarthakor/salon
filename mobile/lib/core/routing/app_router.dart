@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/data/models/app_role.dart';
+import '../../features/home/presentation/screens/branded_role_blocked_screen.dart';
+import '../brand/brand_config.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_choice_screen.dart';
@@ -129,11 +131,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isSplash ? null : '/splash';
       }
       if (auth.status == AuthStatus.unauthenticated) {
+        // A branded single-salon app has no owner/customer choice — there is
+        // only one kind of account it supports, so skip straight past it.
+        if (BrandConfig.current.singleSalon && location == '/register-choice') return '/register';
         return isAuthScreen ? null : '/login';
       }
 
       // authenticated
       final role = AppRole.fromBackendRole(auth.user!.role);
+      // A branded single-salon app has no owner/staff surface at all (see
+      // the conditional route lists below) — an owner/staff account that
+      // signs in here is shown a plain explainer instead of a home that
+      // doesn't exist in this build. The main multi-tenant app is
+      // completely unaffected (BrandConfig.current.singleSalon is false).
+      if (BrandConfig.current.singleSalon && role != AppRole.customer) {
+        return location == '/branded-blocked' ? null : '/branded-blocked';
+      }
       // A brand-new self-registered owner (hasSalonProfile == false, set by
       // AuthController.registerOwner()) lands on Salon Profile first instead
       // of the dashboard — see "Owner onboarding: salon setup" in
@@ -219,7 +232,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/loyalty', builder: (context, state) => const LoyaltyScreen()),
 
-      // --- Owner/admin app (Phase 8) ---
+      // A branded single-salon app supports customer accounts only — see the
+      // `role != AppRole.customer` redirect above.
+      GoRoute(path: '/branded-blocked', builder: (context, state) => const BrandedRoleBlockedScreen()),
+
+      // --- Owner/admin app (Phase 8) — entirely absent from a branded
+      // single-salon app build; the owner keeps using the main app instead
+      // (see BrandedRoleBlockedScreen). Zero owner/staff code is reachable
+      // in that build even by URL, since these routes simply don't exist.
+      if (!BrandConfig.current.singleSalon) ...[
       GoRoute(path: '/owner', builder: (context, state) => const OwnerShell()),
 
       GoRoute(
@@ -374,6 +395,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/staff/appointments/:id/reschedule',
         builder: (context, state) => OwnerRescheduleScreen(bookingId: state.pathParameters['id']!),
       ),
+      ], // end owner/staff routes (main multi-tenant app only)
     ],
   );
 });

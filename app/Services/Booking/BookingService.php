@@ -19,6 +19,7 @@ use App\Models\BookingStatusHistory;
 use App\Models\Branch;
 use App\Models\BranchWorkingHour;
 use App\Models\Customer;
+use App\Models\SalonMedia;
 use App\Models\Service;
 use App\Models\Staff;
 use App\Models\StaffBreak;
@@ -33,6 +34,7 @@ use App\Support\TimeMath;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Orchestrates booking creation, cancellation, rescheduling, and status transitions.
@@ -53,9 +55,9 @@ class BookingService
     /**
      * @param  array<int, array{service_id: string, staff_id: ?string}>  $items
      */
-    public function create(Tenant $tenant, Branch $branch, Customer $customer, array $items, CarbonImmutable $date, string $startTime, ?string $notes, ?User $actor, ?string $couponCode = null, ?int $loyaltyPointsToRedeem = null): Booking
+    public function create(Tenant $tenant, Branch $branch, Customer $customer, array $items, CarbonImmutable $date, string $startTime, ?string $notes, ?User $actor, ?string $couponCode = null, ?int $loyaltyPointsToRedeem = null, ?SalonMedia $style = null): Booking
     {
-        return DB::transaction(function () use ($tenant, $branch, $customer, $items, $date, $startTime, $notes, $actor, $couponCode, $loyaltyPointsToRedeem): Booking {
+        return DB::transaction(function () use ($tenant, $branch, $customer, $items, $date, $startTime, $notes, $actor, $couponCode, $loyaltyPointsToRedeem, $style): Booking {
             if ((string) $branch->tenant_id !== (string) $tenant->id || $branch->status !== BusinessStatus::ACTIVE) {
                 throw new BookingUnavailableException('The selected branch is not available.');
             }
@@ -109,6 +111,8 @@ class BookingService
             $booking = Booking::query()->create([
                 'branch_id' => $branch->id,
                 'customer_id' => $customer->id,
+                'salon_media_id' => $style?->id,
+                'style_label' => $style === null ? null : Str::limit($style->caption ?: ($style->category?->label() ?? 'Gallery style'), 160, ''),
                 'booking_date' => $date->toDateString(),
                 'start_time' => $startTime,
                 'end_time' => TimeMath::fromMinutes(max(array_column($itemTimes, 'end_minutes'))),
@@ -161,7 +165,7 @@ class BookingService
 
             event(new BookingCreated($booking));
 
-            return $booking->fresh(['items.staff', 'items.service', 'customer', 'branch']);
+            return $booking->fresh(['items.staff', 'items.service', 'customer', 'branch', 'styleMedia']);
         }, self::LOCK_RETRY_ATTEMPTS);
     }
 
@@ -191,7 +195,7 @@ class BookingService
 
             event(new BookingCancelled($locked));
 
-            return $locked->fresh(['items.staff', 'items.service', 'customer', 'branch']);
+            return $locked->fresh(['items.staff', 'items.service', 'customer', 'branch', 'styleMedia']);
         }, self::LOCK_RETRY_ATTEMPTS);
     }
 
@@ -277,7 +281,7 @@ class BookingService
 
             event(new BookingRescheduled($locked, $oldDate, $oldStart));
 
-            return $locked->fresh(['items.staff', 'items.service', 'customer', 'branch']);
+            return $locked->fresh(['items.staff', 'items.service', 'customer', 'branch', 'styleMedia']);
         }, self::LOCK_RETRY_ATTEMPTS);
     }
 
@@ -301,7 +305,7 @@ class BookingService
                 default => null,
             };
 
-            return $locked->fresh(['items.staff', 'items.service', 'customer', 'branch']);
+            return $locked->fresh(['items.staff', 'items.service', 'customer', 'branch', 'styleMedia']);
         }, self::LOCK_RETRY_ATTEMPTS);
     }
 

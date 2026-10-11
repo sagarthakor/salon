@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/brand/brand_config.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/primary_button.dart';
@@ -62,7 +63,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.content_cut, size: 48, color: Theme.of(context).colorScheme.primary),
+                  BrandConfig.current.logoAssetPath != null
+                      ? Image.asset(BrandConfig.current.logoAssetPath!, height: 80)
+                      : Icon(Icons.content_cut, size: 48, color: Theme.of(context).colorScheme.primary),
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     'Welcome back',

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../booking/data/models/booking_style.dart';
 import '../../../booking/presentation/providers/booking_providers.dart';
 import '../../../salon/data/models/branch.dart';
 import '../../../salon/presentation/providers/salon_providers.dart';
@@ -65,8 +66,20 @@ class _GalleryViewerScreenState extends ConsumerState<GalleryViewerScreen> {
   /// the branch's live catalog so a service that was since deactivated or
   /// deleted never reaches booking.
   Future<void> _bookThisStyle() async {
-    final service = widget.item.service;
-    if (service == null || _booking) return;
+    final item = widget.item;
+    final service = item.service;
+    if (_booking) return;
+    final style = BookingStyle(mediaId: item.id, label: item.caption, categoryLabel: item.categoryLabel, thumbnailUrl: item.thumbnailUrl);
+    // No linked service: start the normal flow at service selection with the
+    // style attached, so the customer picks the service themselves.
+    if (service == null) {
+      ref.read(selectedBranchProvider.notifier).state = widget.branch;
+      final flow = ref.read(bookingFlowControllerProvider.notifier);
+      flow.selectBranch(widget.branch);
+      flow.setStyle(style);
+      context.push('/booking/audience');
+      return;
+    }
     setState(() => _booking = true);
     try {
       final catalog = await ref.read(branchServicesProvider((branchId: widget.branch.id, audience: null)).future);
@@ -80,6 +93,7 @@ class _GalleryViewerScreenState extends ConsumerState<GalleryViewerScreen> {
       final flow = ref.read(bookingFlowControllerProvider.notifier);
       flow.selectBranch(widget.branch);
       flow.toggleService(match);
+      flow.setStyle(style);
       context.push('/booking/cart');
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
@@ -114,6 +128,13 @@ class _GalleryViewerScreenState extends ConsumerState<GalleryViewerScreen> {
     }
     // Instagram-only (or nothing playable): thumbnail only — deliberately no
     // play affordance, since tapping it could not play anything in-app.
+    if (item.isPhoto) {
+      return InteractiveViewer(
+        key: const Key('gallery-photo-viewer'),
+        maxScale: 4,
+        child: Center(child: GalleryThumbnail(url: item.imageUrl ?? item.thumbnailUrl, fit: BoxFit.contain, iconColor: Colors.white54)),
+      );
+    }
     return Center(child: GalleryThumbnail(url: item.thumbnailUrl, fit: BoxFit.contain, iconColor: Colors.white54));
   }
 
@@ -135,7 +156,7 @@ class _GalleryViewerScreenState extends ConsumerState<GalleryViewerScreen> {
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              if (item.service != null)
+              if (item.service != null || item.id.isNotEmpty)
                 Expanded(
                   child: FilledButton.icon(
                     key: const Key('gallery-book-button'),
@@ -144,7 +165,7 @@ class _GalleryViewerScreenState extends ConsumerState<GalleryViewerScreen> {
                     label: Text(_booking ? 'Please wait…' : 'Book This Style'),
                   ),
                 ),
-              if (item.service != null && item.instagramUrl != null) const SizedBox(width: AppSpacing.sm),
+              if (item.instagramUrl != null) const SizedBox(width: AppSpacing.sm),
               if (item.instagramUrl != null)
                 Expanded(
                   child: OutlinedButton.icon(

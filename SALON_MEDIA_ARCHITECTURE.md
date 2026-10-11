@@ -115,3 +115,10 @@ Video bandwidth: the `public` disk serves MP4 straight from nginx (range request
 ## Unverified against real Meta (no credentials were available)
 
 The `/me/media` edge, the field list `id,caption,media_type,permalink,thumbnail_url,timestamp`, `limit`/`after` cursor paging, `caption` availability under Instagram Login (Meta's reference labels it Facebook-Login-only), and the exact error shapes for the classes above are taken from Meta's docs and general Graph behaviour, not from live calls. Confirm them on the first real sync with the tester account.
+
+## Book This Style → booking (persisted)
+
+- `bookings.salon_media_id` (nullable FK → `salon_media`, `nullOnDelete`) and `bookings.style_label` (caption/category snapshot) — migration `2026_10_11_000000_add_salon_media_to_bookings_table.php`.
+- `POST /customer/bookings` accepts optional `salon_media_id`. It must be an **active** item of the booking's tenant that is salon-wide or belongs to the booking's branch, otherwise `422` on `salon_media_id` and nothing is booked. The linked service is still validated and priced by the normal booking engine; the style never affects price or availability.
+- `BookingResource.style` = `{id, label, category_label, thumbnail_url}` (null when no style). Deleting the gallery item keeps the booking, nulls `id`, keeps `label`. Owner and customer booking `show` endpoints load it.
+- Photos: owners may upload `image` (jpg/png/webp, `SALON_MEDIA_MAX_IMAGE_KB`, default 10 MB) instead of a video; stored in `thumbnail_path`, `media_type = photo`, `playback = image`, `image_url` set.

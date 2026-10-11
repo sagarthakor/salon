@@ -45,7 +45,7 @@ class OwnerGalleryScreen extends ConsumerWidget {
             Text('Gallery items', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Hosted videos play inside the app. Instagram-only items show a thumbnail with a "View on Instagram" link. Drag to reorder.',
+              'Photos and hosted videos open inside the app. Instagram-only items show a thumbnail with a "View on Instagram" link. Drag to reorder.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -112,8 +112,8 @@ class _OwnerGalleryTile extends ConsumerWidget {
                     children: [
                       Chip(
                         visualDensity: VisualDensity.compact,
-                        avatar: Icon(item.hasNativeVideo ? Icons.play_circle_outline : Icons.open_in_new, size: 16),
-                        label: Text(item.hasNativeVideo ? 'Hosted video' : 'Instagram only'),
+                        avatar: Icon(item.isPhoto ? Icons.photo_outlined : (item.hasNativeVideo ? Icons.play_circle_outline : Icons.open_in_new), size: 16),
+                        label: Text(item.isPhoto ? 'Photo' : (item.hasNativeVideo ? 'Hosted video' : 'Instagram only')),
                       ),
                       if (!item.isActive) const Chip(visualDensity: VisualDensity.compact, label: Text('Hidden')),
                       if (item.categoryLabel != null) Chip(visualDensity: VisualDensity.compact, label: Text(item.categoryLabel!)),

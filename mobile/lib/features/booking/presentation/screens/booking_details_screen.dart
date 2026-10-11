@@ -6,6 +6,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/state_views.dart';
 import '../../data/models/booking.dart';
+import 'booking_flow_scaffold.dart' show SelectedStyleBanner;
 import '../providers/booking_providers.dart';
 
 class BookingDetailsScreen extends ConsumerStatefulWidget {
@@ -58,6 +59,7 @@ class _BookingDetailsScreenState extends ConsumerState<BookingDetailsScreen> {
         data: (booking) => ListView(
           padding: const EdgeInsets.all(AppSpacing.md),
           children: [
+            if (booking.style != null) SelectedStyleBanner(style: booking.style!),
             _DetailCard(booking: booking),
             const SizedBox(height: AppSpacing.md),
             if (booking.items.isNotEmpty) _ItemsCard(booking: booking),

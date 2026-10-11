@@ -12,6 +12,7 @@ use App\Models\Branch;
 use App\Models\BranchWorkingHour;
 use App\Models\Customer;
 use App\Models\Salon;
+use App\Models\SalonMedia;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\Staff;
@@ -465,6 +466,49 @@ class BookingEngineApiTest extends TestCase
             'branch_id' => $f['branch']->id, 'customer_id' => $f['customer']->id, 'date' => $date, 'start_time' => '09:30',
             'items' => [['service_id' => $f['haircut']->id, 'staff_id' => $f['amit']->id]],
         ])->assertStatus(409);
+    }
+
+    public function test_customer_booking_persists_the_gallery_style_and_rejects_unusable_ones(): void
+    {
+        $f = $this->fixture('a');
+        $g = $this->fixture('b');
+        $customerUser = User::factory()->create(['role' => UserRole::CUSTOMER]);
+        app(TenantContext::class)->set($f['tenant']);
+        $f['customer']->update(['user_id' => $customerUser->id]);
+        $style = SalonMedia::query()->create(['source' => 'instagram', 'instagram_url' => 'https://www.instagram.com/reel/AAA/', 'caption' => 'Layered bob', 'category' => 'haircut', 'is_active' => true, 'service_id' => $f['haircut']->id]);
+        $hidden = SalonMedia::query()->create(['source' => 'instagram', 'instagram_url' => 'https://www.instagram.com/reel/HID/', 'is_active' => false]);
+        app(TenantContext::class)->set($g['tenant']);
+        $foreign = SalonMedia::query()->create(['source' => 'instagram', 'instagram_url' => 'https://www.instagram.com/reel/FOR/', 'is_active' => true]);
+        app(TenantContext::class)->clear();
+        $date = $this->bookingDate();
+        $payload = fn (?string $mediaId, string $time) => [
+            'branch_id' => $f['branch']->id, 'date' => $date, 'start_time' => $time,
+            'items' => [['service_id' => $f['haircut']->id, 'staff_id' => null]],
+        ] + ($mediaId === null ? [] : ['salon_media_id' => $mediaId]);
+        $api = $this->actingAs($customerUser, 'sanctum');
+
+        $created = $api->postJson('/api/v1/customer/bookings', $payload($style->id, '09:00'))->assertCreated()
+            ->assertJsonPath('data.style.id', $style->id)->assertJsonPath('data.style.label', 'Layered bob')->assertJsonPath('data.style.category_label', 'Haircut')->json('data');
+        $this->assertDatabaseHas('bookings', ['id' => $created['id'], 'salon_media_id' => $style->id, 'style_label' => 'Layered bob']);
+        $api->getJson('/api/v1/customer/bookings/'.$created['id'])->assertOk()->assertJsonPath('data.style.id', $style->id);
+
+        // Hidden and other-tenant items are refused and nothing is booked.
+        $api->postJson('/api/v1/customer/bookings', $payload($hidden->id, '11:00'))->assertUnprocessable()->assertJsonValidationErrors('salon_media_id');
+        $api->postJson('/api/v1/customer/bookings', $payload($foreign->id, '11:00'))->assertUnprocessable();
+        $this->assertSame(1, Booking::withoutGlobalScope('tenant')->count());
+
+        // Booking without a style is unchanged.
+        $api->postJson('/api/v1/customer/bookings', $payload(null, '13:00'))->assertCreated()->assertJsonPath('data.style', null);
+
+        // Deleting the gallery item keeps the booking and its label snapshot.
+        app(TenantContext::class)->set($f['tenant']);
+        $style->delete();
+        app(TenantContext::class)->clear();
+        $api->getJson('/api/v1/customer/bookings/'.$created['id'])->assertOk()->assertJsonPath('data.style.id', null)->assertJsonPath('data.style.label', 'Layered bob');
+
+        // The salon sees the style on its side too (the label survives the deletion).
+        $this->actingAs($f['owner'], 'sanctum')->withHeader('X-Tenant-Slug', $f['tenant']->slug)
+            ->getJson('/api/v1/bookings/'.$created['id'])->assertOk()->assertJsonPath('data.style.label', 'Layered bob');
     }
 
     public function test_max_advance_booking_window_is_enforced(): void

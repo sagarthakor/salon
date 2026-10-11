@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/brand/brand_config.dart';
 import '../../../../core/providers.dart';
 import '../../data/models/branch.dart';
 import '../../data/models/customer_salon.dart';
@@ -34,3 +35,14 @@ final selectedBranchProvider = StateProvider<Branch?>((ref) => null);
 /// customer dashboard's "Men / Women / Unisex / Kids" entry point. See
 /// MASTER_CATALOG_ARCHITECTURE.md.
 final selectedAudienceProvider = StateProvider<String?>((ref) => null);
+
+/// A branded single-salon app's one fixed salon (see [BrandConfig]),
+/// resolved once per session from the tenant id baked into the build.
+/// `null`/unused for the standard multi-tenant app.
+final brandedSalonProvider = FutureProvider<Salon>((ref) {
+  final tenantId = BrandConfig.current.tenantId;
+  if (tenantId == null) {
+    throw StateError('brandedSalonProvider was read without a BrandConfig.tenantId set.');
+  }
+  return ref.watch(salonRepositoryProvider).salonForTenant(tenantId);
+});

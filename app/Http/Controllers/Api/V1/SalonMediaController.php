@@ -44,19 +44,22 @@ class SalonMediaController extends TenantManagementController
     {
         $this->managedTenant();
         $data = $request->validated();
-        unset($data['video'], $data['thumbnail'], $data['remove_video'], $data['remove_thumbnail']);
+        unset($data['video'], $data['thumbnail'], $data['image'], $data['remove_video'], $data['remove_thumbnail']);
         $data['caption_customized'] = filled($data['caption'] ?? null);
         $data['is_active'] ??= true;
         $data['sort_order'] ??= 0;
-        $data['media_type'] = 'video';
-        $data['source'] = $request->hasFile('video') ? SalonMediaSource::UPLOAD : SalonMediaSource::INSTAGRAM;
+        $data['media_type'] = $request->hasFile('image') ? 'photo' : 'video';
+        $data['source'] = $request->hasFile('video') || $request->hasFile('image') ? SalonMediaSource::UPLOAD : SalonMediaSource::INSTAGRAM;
 
         $paths = [];
         try {
             if ($request->hasFile('video')) {
                 $paths[] = $data['video_path'] = $this->storeFile($request->file('video'), 'videos');
             }
-            if ($request->hasFile('thumbnail')) {
+            // A photo item keeps its image in `thumbnail_path` (the grid tile and the viewer share it).
+            if ($request->hasFile('image')) {
+                $paths[] = $data['thumbnail_path'] = $this->storeFile($request->file('image'), 'images');
+            } elseif ($request->hasFile('thumbnail')) {
                 $paths[] = $data['thumbnail_path'] = $this->storeFile($request->file('thumbnail'), 'thumbnails');
             }
             $media = SalonMedia::query()->create($data);
@@ -82,7 +85,7 @@ class SalonMediaController extends TenantManagementController
         $this->managedTenant();
         $model = $this->find($media);
         $data = $request->validated();
-        unset($data['video'], $data['thumbnail'], $data['remove_video'], $data['remove_thumbnail']);
+        unset($data['video'], $data['thumbnail'], $data['image'], $data['remove_video'], $data['remove_thumbnail']);
         // Setting or deliberately clearing the caption (a value that differs from what is stored)
         // marks it owner-managed, so a later Instagram sync never refills it.
         if (array_key_exists('caption', $data) && $data['caption'] !== $model->caption) {
@@ -101,10 +104,13 @@ class SalonMediaController extends TenantManagementController
             $obsolete[] = $model->video_path;
             $data['video_path'] = null;
         }
-        if ($request->hasFile('thumbnail')) {
+        if ($request->hasFile('image') && $model->isPhoto()) {
+            $obsolete[] = $model->thumbnail_path;
+            $data['thumbnail_path'] = $this->storeFile($request->file('image'), 'images');
+        } elseif ($request->hasFile('thumbnail')) {
             $obsolete[] = $model->thumbnail_path;
             $data['thumbnail_path'] = $this->storeFile($request->file('thumbnail'), 'thumbnails');
-        } elseif ($request->boolean('remove_thumbnail')) {
+        } elseif ($request->boolean('remove_thumbnail') && ! $model->isPhoto()) {
             $obsolete[] = $model->thumbnail_path;
             $data['thumbnail_path'] = null;
         }
@@ -112,7 +118,7 @@ class SalonMediaController extends TenantManagementController
         // An item must always stay presentable: hosted video or Instagram link.
         $willHaveVideo = array_key_exists('video_path', $data) ? $data['video_path'] !== null : $model->video_path !== null;
         $willHaveLink = array_key_exists('instagram_url', $data) ? $data['instagram_url'] !== null : $model->instagram_url !== null;
-        if (! $willHaveVideo && ! $willHaveLink) {
+        if (! $model->isPhoto() && ! $willHaveVideo && ! $willHaveLink) {
             return ApiResponse::error('A gallery item needs a hosted video or an Instagram link.', ['video' => ['A gallery item needs a hosted video or an Instagram link.']], 422);
         }
 

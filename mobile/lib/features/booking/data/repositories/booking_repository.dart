@@ -47,6 +47,7 @@ class BookingRepository {
     int? loyaltyPointsToRedeem,
     String? phone,
     String? countryCode,
+    String? salonMediaId,
   }) async {
     final data = await _client.post<Map<String, dynamic>>(
       '/customer/bookings',
@@ -60,6 +61,7 @@ class BookingRepository {
         'loyalty_points_to_redeem': ?loyaltyPointsToRedeem,
         'phone': ?phone,
         'country_code': ?countryCode,
+        'salon_media_id': ?salonMediaId,
       },
     );
     return Booking.fromJson(data);

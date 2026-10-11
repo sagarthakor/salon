@@ -33,4 +33,13 @@ class SalonRepository {
     final data = await _client.get<List<dynamic>>('/customer/salons/$salonId/branches');
     return data.map((e) => Branch.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  /// Resolves a branded single-salon app's one fixed salon from the tenant
+  /// id baked into its `BrandConfig` — see `GET /customer/brand/{tenant}`.
+  /// The result feeds straight into [branchesForSalon], exactly like a salon
+  /// picked from [discoverSalons] would.
+  Future<Salon> salonForTenant(String tenantId) async {
+    final data = await _client.get<Map<String, dynamic>>('/customer/brand/$tenantId');
+    return Salon.fromJson(data);
+  }
 }
